@@ -1,0 +1,647 @@
+/* Raciel Chirino Academy — lógica de la app conectada a Supabase */
+'use strict';
+const ADMIN = 'racielchirino@gmail.com';
+const CFG = window.RCA_CONFIG || {};
+const CONFIGURED = /^https:\/\/.+\.supabase\.co/.test(CFG.url || '') && CFG.key && !/TU-/.test(CFG.key);
+const sb = CONFIGURED && window.supabase ? window.supabase.createClient(CFG.url, CFG.key) : null;
+const CACHE_KEY = 'rca_cache_v1';
+const MAX_VIDEO_MB = 50; // límite por archivo del plan gratis de Supabase
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const newId = () => (crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 3 | 8)).toString(16); }));
+const BANDS = { rosa: 'Rosa', coral: 'Coral', naranja: 'Naranja', azul: 'Azul', negro: 'Negro' };
+
+/* ============ Estado ============ */
+let S = { settings: { bank: '', whatsapp: '', email: '', banners: [] }, courses: [], enroll: [], reqs: [], done: {}, allReqs: [], user: null, offline: false, loaded: false };
+try { const c = JSON.parse(localStorage.getItem(CACHE_KEY)); if (c && c.courses) S = { ...S, ...c, allReqs: [], loaded: true }; } catch (e) {}
+
+const me = () => S.user && S.user.email;
+const isAdmin = () => (me() || '').toLowerCase() === ADMIN;
+const course = id => S.courses.find(c => c.id === id);
+const hasAccess = cid => S.enroll.includes(cid) || isAdmin();
+const lastReq = cid => [...S.reqs].reverse().find(r => r.course_id === cid);
+const done = lid => !!S.done[lid];
+
+async function loadAll() {
+  if (!sb) return;
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    const u = session?.user;
+    S.user = u ? { id: u.id, email: (u.email || '').toLowerCase(), name: u.user_metadata?.name || (u.email || '').split('@')[0] } : null;
+    const [st, cs, ls] = await Promise.all([
+      sb.from('settings').select('*').eq('id', 1).maybeSingle(),
+      sb.from('courses').select('*').order('position').order('created_at'),
+      sb.from('lessons').select('id,course_id,title,dur,position,created_at,has_video').order('position').order('created_at')
+    ]);
+    if (cs.error) throw cs.error;
+    if (st.data) S.settings = st.data;
+    S.courses = (cs.data || []).map(c => ({ ...c, lessons: (ls.data || []).filter(l => l.course_id === c.id) }));
+    S.enroll = []; S.reqs = []; S.done = {}; S.allReqs = [];
+    if (u) {
+      const [en, rq, pr] = await Promise.all([
+        sb.from('enrollments').select('course_id').eq('user_id', u.id),
+        sb.from('requests').select('*').eq('user_id', u.id).order('created_at'),
+        sb.from('progress').select('lesson_id').eq('user_id', u.id)
+      ]);
+      S.enroll = (en.data || []).map(x => x.course_id);
+      S.reqs = rq.data || [];
+      (pr.data || []).forEach(p => S.done[p.lesson_id] = true);
+      if (isAdmin()) { const all = await sb.from('requests').select('*').order('created_at', { ascending: false }); S.allReqs = all.data || []; }
+    }
+    S.offline = false; S.loaded = true;
+    try { const { allReqs, offline, ...keep } = S; localStorage.setItem(CACHE_KEY, JSON.stringify(keep)); } catch (e) {}
+  } catch (e) {
+    S.offline = true; S.loaded = true;
+  }
+}
+
+/* ============ Utilidades ============ */
+const sec = d => { const p = String(d || '').split(':').map(Number); if (p.some(isNaN)) return 0; return p.reduce((a, b) => a * 60 + b, 0); };
+const mmss = s => { s = Math.round(s); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60; return (h ? h + ':' + String(m).padStart(2, '0') : String(m).padStart(2, '0')) + ':' + String(x).padStart(2, '0'); };
+const total = c => c.lessons.reduce((a, l) => a + sec(l.dur), 0);
+const human = s => { const h = Math.floor(s / 3600), m = Math.round(s % 3600 / 60); return h ? `${h} h ${m} min` : `${m} min`; };
+const pct = c => c.lessons.length ? Math.round(c.lessons.filter(l => done(l.id)).length / c.lessons.length * 100) : 0;
+const fecha = t => new Date(t).toLocaleDateString('es', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+const greet = () => { const h = new Date().getHours(); return h < 12 ? 'Buenos días,' : h < 19 ? 'Buenas tardes,' : 'Buenas noches,'; };
+const mediaURL = p => !p ? '' : (p.startsWith('images/') || p.startsWith('http')) ? p : sb ? sb.storage.from('media').getPublicUrl(p).data.publicUrl : '';
+let toastT;
+function toast(m) { const t = $('#toast'); t.textContent = m; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, 3000); }
+function friendly(err) {
+  const m = String(err?.message || err || '');
+  if (/Invalid login credentials/i.test(m)) return 'Correo o contraseña incorrectos.';
+  if (/Email not confirmed/i.test(m)) return 'Confirma tu correo: abre el enlace que te enviamos.';
+  if (/already registered|already been registered/i.test(m)) return 'Ese correo ya tiene cuenta. Entra con tu contraseña.';
+  if (/Password should be at least/i.test(m)) return 'La contraseña debe tener al menos 6 caracteres.';
+  if (/exceeded the maximum allowed size|Payload too large|413/i.test(m)) return `El archivo es muy pesado. El máximo es ${MAX_VIDEO_MB} MB; usa un enlace de YouTube o Vimeo.`;
+  if (/Failed to fetch|NetworkError|network/i.test(m)) return 'Sin conexión. Revisa tu internet e intenta de nuevo.';
+  if (/rate limit/i.test(m)) return 'Demasiados intentos. Espera unos minutos.';
+  return 'No se pudo completar: ' + m;
+}
+const ic = {
+  lock: '<svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>',
+  play: '<svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>',
+  check: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>',
+  x: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+  chev: '<svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>'
+};
+function coverEl(c, cls = '') {
+  const u = mediaURL(c.cover_path);
+  return `<div class="img ${cls}"><div class="ph" style="--b:var(--band-${c.band || 'rosa'})"><span class="k">${esc(c.kicker || c.title)}</span>${c.sub ? `<span class="s">${esc(c.sub)}</span>` : ''}</div>${u ? `<img src="${esc(u)}" alt="" loading="lazy" onerror="this.remove()">` : ''}</div>`;
+}
+const busy = (btn, txt) => { if (!btn) return () => {}; const o = btn.innerHTML; btn.disabled = true; btn.textContent = txt; return () => { btn.disabled = false; btn.innerHTML = o; }; };
+
+/* ============ Vistas: alumno ============ */
+function vSetup() {
+  return `<section class="hello"><p>Falta un paso</p><h1>Conecta la base de datos</h1></section>
+    <p class="note plain">Abre el archivo <b>config.js</b> y escribe la dirección del proyecto y la clave pública de Supabase (Project Settings → API).</p>`;
+}
+function vHome() {
+  const list = S.courses.filter(c => c.active);
+  const going = S.courses.filter(c => S.enroll.includes(c.id));
+  const banners = (S.settings.banners || []).map(mediaURL).filter(Boolean);
+  const slides = banners.length ? banners.map(u => `<div class="slide"><img src="${esc(u)}" alt=""></div>`).join('')
+    : `<div class="slide"><div class="slide-default"><span class="big">RACIEL CHIRINO</span><span class="rule">escuela de</span><span class="sub">Contenido</span></div></div>`;
+  return `
+    <section class="hello"><p>${greet()}</p><h1>${esc(S.user?.name || 'Bienvenida a la academia')}</h1></section>
+    ${S.offline ? '<p class="note warn">Sin conexión. Estás viendo la última información guardada.</p>' : ''}
+    <section class="carousel">
+      <div class="slides" id="slides">${slides}</div>
+      ${banners.length > 1 ? `<div class="dots" id="dots">${banners.map((_, i) => `<i class="${i ? '' : 'on'}"></i>`).join('')}</div>` : ''}
+    </section>
+    ${going.length ? `<section class="sec">
+      <div class="sec-head"><h2>Continuar viendo</h2><a href="#/mine">Ver todos</a></div>
+      <div class="hrow">${going.map(c => { const p = pct(c); const next = c.lessons.find(l => !done(l.id)) || c.lessons[0];
+        return `<a class="cw" href="${next ? `#/lesson/${c.id}/${next.id}` : `#/course/${c.id}`}">${coverEl(c)}
+          <div class="band" style="--b:var(--band-${c.band || 'rosa'})"><b>${esc(c.title)}</b><div class="pr"><div class="bar"><span style="width:${p}%"></span></div>${p}%</div></div></a>`; }).join('')}</div>
+    </section>` : ''}
+    <section class="sec">
+      <div class="sec-head"><h2>Todos los cursos</h2></div>
+      <div class="courses">${list.map(c => `
+        <a class="cc" href="#/course/${c.id}">${coverEl(c)}
+          <div class="info">${statusChip(c)}<h3>${esc(c.title)}</h3>
+            <div class="meta"><span>${esc(c.level)}</span><span>${c.lessons.length} lecciones · ${human(total(c))}</span><span class="price">$${esc(c.price)}</span></div></div>
+        </a>`).join('') || `<p class="note plain">${S.loaded ? 'Pronto habrá cursos disponibles.' : 'Cargando cursos…'}</p>`}</div>
+    </section>`;
+}
+function statusChip(c) {
+  if (S.enroll.includes(c.id)) return '<span class="chip ok">Tienes acceso</span>';
+  const r = lastReq(c.id);
+  if (r && r.status === 'pendiente') return '<span class="chip warn">Pago en revisión</span>';
+  return '';
+}
+function lessonRows(c, currentId) {
+  const acc = hasAccess(c.id);
+  return `<ol class="lessons">${c.lessons.map((l, i) => {
+    const d = done(l.id);
+    const inner = `<span class="n">${d ? ic.check : i + 1}</span><span class="t">${esc(l.title)}<span>${esc(l.dur || '--:--')}</span></span>${acc ? ic.play : ic.lock}`;
+    return `<li>${acc ? `<a class="lesson${d ? ' done' : ''}${l.id === currentId ? ' current' : ''}" href="#/lesson/${c.id}/${l.id}">${inner}</a>` : `<div class="lesson">${inner}</div>`}</li>`;
+  }).join('')}</ol>`;
+}
+function vCourse(id) {
+  const c = course(id);
+  if (!c) return `<p class="note plain">${S.loaded ? 'Este curso no está disponible.' : 'Cargando…'}</p>`;
+  const acc = hasAccess(id), r = lastReq(id);
+  const next = c.lessons.find(l => !done(l.id)) || c.lessons[0];
+  let action;
+  if (acc) action = next ? `<a class="btn primary block" href="#/lesson/${c.id}/${next.id}">${c.lessons.some(l => done(l.id)) ? `Continuar · ${pct(c)}%` : 'Empezar el curso'}</a>` : `<p class="note plain">Las lecciones se están preparando.</p>`;
+  else if (r && r.status === 'pendiente') action = `<p class="note warn"><b>Recibimos tu comprobante.</b> Raciel lo está revisando y activará tu curso en cuanto confirme el pago.</p>`;
+  else action = `${r && r.status === 'rechazado' ? `<p class="note bad">Tu último comprobante no se pudo confirmar. Revisa los datos del pago y envíalo de nuevo.</p>` : ''}
+    <button class="btn primary block" data-act="buy" data-id="${c.id}">Inscribirme por $${esc(c.price)}</button>
+    <p class="small muted center">Pagas por transferencia o Pago Móvil y subes el capture. Tu acceso se activa cuando se confirma el pago.</p>`;
+  return `${coverEl(c, 'hero')}
+    <div class="detail-head"><h1>${esc(c.title)}</h1><p class="meta">${esc(c.level)} · ${c.lessons.length} lecciones · ${human(total(c))}</p><p class="lead">${esc(c.tagline)}</p></div>
+    <div class="box">${action}</div>
+    <section class="sec"><div class="sec-head"><h2>Contenido</h2></div>${lessonRows(c)}</section>`;
+}
+function vLesson(cid, lid) {
+  const c = course(cid);
+  if (!c) return `<p class="note plain">Cargando…</p>`;
+  if (!hasAccess(cid)) { setTimeout(() => go('course/' + cid)); return ''; }
+  const i = c.lessons.findIndex(l => l.id === lid), l = c.lessons[i];
+  if (!l) return `<p class="note plain">Lección no encontrada.</p>`;
+  const nx = c.lessons[i + 1], d = done(l.id), p = pct(c);
+  return `<div class="player" id="player" data-c="${c.id}" data-lid="${l.id}"><div class="empty">Cargando video…</div></div>
+    <div class="detail-head"><p class="meta">Lección ${i + 1} de ${c.lessons.length} · ${esc(l.dur || '')}</p><h1>${esc(l.title)}</h1></div>
+    <div class="row">
+      <button class="btn ${d ? '' : 'dark'}" data-act="markDone" data-l="${l.id}">${d ? ic.check + ' Vista' : 'Marcar como vista'}</button>
+      ${nx ? `<a class="btn primary" href="#/lesson/${c.id}/${nx.id}">Siguiente lección</a>` : ''}
+    </div>
+    <div class="sec" style="gap:8px"><div class="row" style="justify-content:space-between"><b style="font-weight:500">Tu avance</b><span class="muted small">${p}%</span></div><div class="progress"><span style="width:${p}%"></span></div></div>
+    <section class="sec"><div class="sec-head"><h2>Lecciones</h2></div>${lessonRows(c, l.id)}</section>`;
+}
+function vMine() {
+  if (!me()) return `<section class="hello"><h1>Mis Cursos</h1></section><p class="note plain">Entra a tu cuenta en <a href="#/profile" style="color:var(--coral);font-weight:500">Perfil</a> para ver tus cursos.</p>`;
+  const mine = S.courses.filter(c => S.enroll.includes(c.id));
+  const pend = S.reqs.filter(r => r.status === 'pendiente');
+  return `<section class="hello"><h1>Mis Cursos</h1></section>
+    ${pend.map(r => `<p class="note warn">Pago en revisión: <b>${esc(course(r.course_id)?.title || '')}</b></p>`).join('')}
+    ${mine.length ? `<div class="courses" style="gap:14px">${mine.map(c => { const p = pct(c); return `
+      <a class="mine" href="#/course/${c.id}">${coverEl(c)}<div class="t"><b>${esc(c.title)}</b><div class="progress"><span style="width:${p}%"></span></div><span class="small muted">${p}% completado</span></div></a>`; }).join('')}</div>`
+      : `<p class="note plain">Aún no tienes cursos activos. <a href="#/home" style="color:var(--coral);font-weight:500">Explora el catálogo</a>.</p>`}`;
+}
+let installEvt = null, authMode = 'in';
+const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+function vProfile() {
+  const st = S.settings;
+  const install = standalone ? '' : `<div class="panel"><b style="font-weight:500">Instala la app</b>
+    ${installEvt ? `<p class="muted small">Agrégala a tu pantalla de inicio y ábrela como cualquier app.</p><button class="btn primary" data-act="install">Instalar</button>`
+      : isIOS ? `<p class="muted small">En iPhone: toca Compartir en Safari y luego <b>Agregar a pantalla de inicio</b>.</p>`
+      : `<p class="muted small">En Android: abre el menú de Chrome (⋮) y toca <b>Instalar app</b>.</p>`}</div>`;
+  const auth = authMode === 'forgot'
+    ? `<form class="panel" id="forgotForm"><b style="font-weight:500;font-size:1.1rem">Recupera tu contraseña</b><p class="muted small">Te enviaremos un enlace a tu correo para crear una nueva.</p>
+        <label class="f">Correo<input class="in" id="fEmail" type="email" required autocomplete="email"></label>
+        <button class="btn primary">Enviar enlace</button><button type="button" class="btn" data-act="authMode" data-m="in">Volver</button></form>`
+    : `<div class="seg"><button class="${authMode === 'in' ? 'on' : ''}" data-act="authMode" data-m="in">Entrar</button><button class="${authMode === 'up' ? 'on' : ''}" data-act="authMode" data-m="up">Crear cuenta</button></div>
+      <form class="panel" id="authForm">
+        ${authMode === 'up' ? '<label class="f">Nombre y apellido<input class="in" id="aName" required autocomplete="name"></label>' : ''}
+        <label class="f">Correo<input class="in" id="aEmail" type="email" required autocomplete="email"></label>
+        <label class="f">Contraseña<input class="in" id="aPass" type="password" required minlength="6" autocomplete="${authMode === 'up' ? 'new-password' : 'current-password'}"></label>
+        <button class="btn primary" id="aBtn">${authMode === 'up' ? 'Crear cuenta' : 'Entrar'}</button>
+        ${authMode === 'in' ? '<button type="button" class="btn" style="border:0;color:var(--coral)" data-act="authMode" data-m="forgot">Olvidé mi contraseña</button>' : ''}
+      </form>`;
+  return `<section class="hello"><h1>Perfil</h1></section>
+    ${me() ? `<div class="row" style="gap:16px"><span class="avatar">${esc((S.user.name.trim()[0] || '?').toUpperCase())}</span><div style="min-width:0"><h2 style="font-size:1.25rem">${esc(S.user.name)}</h2><p class="muted" style="overflow-wrap:anywhere">${esc(S.user.email)}</p></div></div>` : auth}
+    ${install}
+    <div class="menu">
+      ${me() ? `<a href="#/mine">Mis Cursos${ic.chev}</a>` : ''}
+      ${st.whatsapp ? `<div style="padding:16px">WhatsApp: <b style="user-select:all;font-weight:500">${esc(st.whatsapp)}</b></div>` : ''}
+      ${st.email ? `<div style="padding:16px;overflow-wrap:anywhere">Correo: <b style="user-select:all;font-weight:500">${esc(st.email)}</b></div>` : ''}
+      ${isAdmin() ? `<a href="#/admin">Panel de administradora${ic.chev}</a>` : ''}
+      ${me() ? `<button data-act="logout" style="color:var(--bad)">Cerrar sesión</button>` : ''}
+    </div>`;
+}
+
+/* ============ Vistas: administradora ============ */
+let adminTab = 'req';
+const vNoAdmin = () => `<p class="note plain" style="margin-top:16px">Esta sección es solo para la administradora. Entra en Perfil con la cuenta de Raciel.</p>`;
+function vAdmin() {
+  const pend = S.allReqs.filter(r => r.status === 'pendiente').length;
+  let body;
+  if (adminTab === 'req') {
+    const reqs = [...S.allReqs].sort((a, b) => (a.status === 'pendiente' ? 0 : 1) - (b.status === 'pendiente' ? 0 : 1));
+    body = reqs.length ? reqs.map(r => `
+      <div class="req">
+        <button class="thumb" data-act="viewCap" data-path="${esc(r.capture_path)}" aria-label="Ver comprobante"><img data-cap="${esc(r.capture_path)}" alt=""></button>
+        <div class="info">
+          <span class="chip ${r.status === 'pendiente' ? 'warn' : r.status === 'aprobado' ? 'ok' : 'bad'}">${r.status === 'pendiente' ? 'Por revisar' : r.status === 'aprobado' ? 'Aprobado' : 'Rechazado'}</span>
+          <b>${esc(r.name)}</b><span>${esc(r.email)}</span>
+          <span>${esc(course(r.course_id)?.title || 'Curso eliminado')} · $${esc(r.amount)} · ${fecha(r.created_at)}</span>
+          ${r.ref ? `<span>Referencia: ${esc(r.ref)}</span>` : ''}
+          ${r.status === 'pendiente' ? `<div class="row" style="margin-top:4px"><button class="btn sm primary" data-act="approve" data-id="${r.id}">${ic.check} Activar curso</button><button class="btn sm danger" data-act="reject" data-id="${r.id}">Rechazar</button></div>` : ''}
+        </div>
+      </div>`).join('') : '<p class="note plain">Aquí aparecerán los comprobantes que envíen tus alumnos. Revisa el capture, confirma el pago en tu banco y toca Activar curso.</p>';
+  } else if (adminTab === 'courses') {
+    body = `${S.courses.map(c => `
+      <div class="crow">${coverEl(c)}
+        <div class="t"><b>${esc(c.title)}</b><span>${c.lessons.length} lecciones · $${esc(c.price)} · ${c.lessons.filter(l => l.has_video).length} videos</span></div>
+        <div class="acts"><label class="switch"><input type="checkbox" data-toggle="${c.id}" ${c.active ? 'checked' : ''} aria-label="Curso visible: ${esc(c.title)}"><span></span></label>
+        <a class="btn sm" href="#/edit/${c.id}">Editar</a></div>
+      </div>`).join('')}
+      <button class="btn dark" data-act="newCourse">Nuevo curso</button>
+      <p class="small muted">El interruptor muestra u oculta el curso en el catálogo. Quien ya pagó conserva su acceso.</p>`;
+  } else {
+    const st = S.settings;
+    body = `<div class="panel"><b style="font-weight:500">Banners de inicio</b><p class="small muted">Las imágenes que se deslizan arriba en Explorar. Tamaño ideal 1600 × 900 (horizontal).</p>
+        ${(st.banners || []).length ? `<div class="bangrid">${st.banners.map((b, i) => `<div class="it"><img src="${esc(mediaURL(b))}" alt=""><button data-act="delBanner" data-i="${i}" aria-label="Quitar banner">${ic.x}</button></div>`).join('')}</div>` : '<p class="note plain">Sin banners. Se muestra el diseño de la academia.</p>'}
+        <label class="btn" for="banIn">Agregar banner</label><input class="sr" type="file" id="banIn" accept="image/*"></div>
+      <form class="panel" id="setForm">
+        <label class="f">Datos para pagar<small>Lo que ve el alumno al inscribirse: banco, Pago Móvil, Zelle, titular.</small><textarea class="in" id="sBank">${esc(st.bank)}</textarea></label>
+        <div class="grid2">
+          <label class="f">WhatsApp<input class="in" id="sWa" value="${esc(st.whatsapp)}" placeholder="+58 414 000 0000"></label>
+          <label class="f">Correo de la academia<input class="in" id="sEmail" type="email" value="${esc(st.email)}"></label>
+        </div>
+        <button class="btn primary">Guardar ajustes</button></form>`;
+  }
+  return `<section class="hello"><p>Administradora</p><h1>Hola, Raciel</h1></section>
+    <div class="seg" role="tablist">
+      <button class="${adminTab === 'req' ? 'on' : ''}" data-act="tab" data-t="req">Pagos${pend ? `<span class="badge">${pend}</span>` : ''}</button>
+      <button class="${adminTab === 'courses' ? 'on' : ''}" data-act="tab" data-t="courses">Cursos</button>
+      <button class="${adminTab === 'set' ? 'on' : ''}" data-act="tab" data-t="set">Ajustes</button>
+    </div>
+    <div class="courses" style="gap:14px">${body}</div>`;
+}
+function vEdit(id) {
+  const c = course(id);
+  if (!c) return `<p class="note plain">Curso no encontrado.</p>`;
+  return `
+    <div class="panel"><b style="font-weight:500">Portada</b>
+      <div class="coveredit">${coverEl(c)}</div>
+      <p class="small muted">Sube la imagen del curso tal como la diseñaste. Tamaño ideal 1600 × 900 (horizontal).</p>
+      <div class="row"><label class="btn" for="covIn">${c.cover_path ? 'Cambiar portada' : 'Subir portada'}</label><input class="sr" type="file" id="covIn" accept="image/*" data-id="${c.id}">
+      ${c.cover_path ? `<button class="btn danger" data-act="delCover" data-id="${c.id}">Quitar</button>` : ''}</div>
+    </div>
+    <form class="panel" id="courseForm" data-id="${c.id}">
+      <label class="f">Nombre del curso<input class="in" id="cTitle" value="${esc(c.title)}" required></label>
+      <label class="f">Descripción<textarea class="in" id="cTag" style="min-height:100px">${esc(c.tagline)}</textarea></label>
+      <div class="grid2">
+        <label class="f">Precio (USD)<input class="in" id="cPrice" type="number" min="0" step="1" value="${esc(c.price)}" required></label>
+        <label class="f">Nivel<select class="in" id="cLevel">${['Principiante', 'Intermedio', 'Avanzado'].map(v => `<option ${v === c.level ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
+      </div>
+      <div class="grid2">
+        <label class="f">Texto grande de la portada provisional<input class="in" id="cKick" value="${esc(c.kicker || '')}" maxlength="18"></label>
+        <label class="f">Texto pequeño<input class="in" id="cSub" value="${esc(c.sub || '')}" maxlength="24"></label>
+      </div>
+      <div class="f" style="display:flex;flex-direction:column;gap:8px;font-size:.9rem;font-weight:500">Color de la franja
+        <div class="swatches">${Object.entries(BANDS).map(([k, n]) => `<label><input type="radio" name="band" value="${k}" ${(c.band || 'rosa') === k ? 'checked' : ''} aria-label="${n}"><i style="background:var(--band-${k})"></i></label>`).join('')}</div></div>
+      <button class="btn primary">Guardar curso</button>
+    </form>
+    <section class="sec"><div class="sec-head"><h2>Lecciones</h2></div>
+    ${c.lessons.length ? `<div>${c.lessons.map((l, i) => `<div class="elesson">
+      <span class="muted">${i + 1}</span>
+      <span class="t"><b>${esc(l.title)}</b><span>${esc(l.dur || '--:--')} · ${l.has_video ? 'Con video' : 'Falta el video'}</span></span>
+      <span class="row" style="gap:6px">
+        <button class="btn sm" data-act="setLink" data-c="${c.id}" data-l="${l.id}">${l.has_video ? 'Cambiar video' : 'Poner video'}</button>
+        <button class="btn sm" data-act="moveL" data-c="${c.id}" data-l="${l.id}" ${i === 0 ? 'disabled' : ''} aria-label="Subir">↑</button>
+        <button class="btn sm danger" data-act="delL" data-c="${c.id}" data-l="${l.id}">Quitar</button>
+      </span></div>`).join('')}</div>` : '<p class="note plain">Este curso aún no tiene lecciones.</p>'}</section>
+    <form class="panel" id="lessonForm" data-id="${c.id}">
+      <b style="font-weight:500">Agregar lección</b>
+      <label class="f">Título<input class="in" id="lTitle" required></label>
+      <label class="f">Enlace del video<small>Pega el enlace de Bunny Stream, Cloudflare Stream, YouTube (oculto) o Vimeo. Se reproduce dentro de la app y solo lo ven quienes tienen el curso.</small><input class="in" id="lUrl" type="url" placeholder="https://"></label>
+      <label class="f">o sube un video corto<small>Solo para clips de hasta ${MAX_VIDEO_MB} MB. Las clases completas (.MOV de varios GB) van por enlace.</small><input class="in" id="lFile" type="file" accept="video/*"></label>
+      <label class="f">Duración<small>Se calcula sola si subes el video.</small><input class="in" id="lDur" placeholder="08:30" pattern="\\d{1,2}:\\d{2}(:\\d{2})?"></label>
+      <button class="btn dark" id="lBtn">Agregar lección</button>
+    </form>
+    <button class="btn danger" data-act="delCourse" data-id="${c.id}">Eliminar curso</button>`;
+}
+
+/* ============ Hojas ============ */
+let capFile = null;
+function openSheet(html) { $('#sheetIn').innerHTML = html; $('#sheet').hidden = false; }
+function closeSheet() { $('#sheet').hidden = true; $('#sheetIn').innerHTML = ''; capFile = null; }
+const sheetHead = t => `<div class="sheet-head"><h2>${t}</h2><button class="iconbtn" style="margin:0" data-act="close" aria-label="Cerrar">${ic.x}</button></div>`;
+function buySheet(c) {
+  if (!me()) { authMode = 'up'; go('profile'); return toast('Crea tu cuenta o entra para inscribirte'); }
+  openSheet(`${sheetHead('Inscripción')}
+    <div class="row" style="justify-content:space-between"><b style="font-weight:500">${esc(c.title)}</b><b style="font-size:1.2rem">$${esc(c.price)}</b></div>
+    <form id="payForm" class="courses" style="gap:16px" data-id="${c.id}">
+      <div class="courses" style="gap:8px"><b style="font-weight:500">1. Paga $${esc(c.price)} a estos datos</b>
+        <pre class="bank" id="bankTxt">${esc(S.settings.bank)}</pre>
+        <button type="button" class="btn sm" data-act="copyBank" style="align-self:flex-start">Copiar datos</button></div>
+      <div class="courses" style="gap:8px"><b style="font-weight:500">2. Sube el capture del pago</b>
+        <label class="drop" for="capIn" id="capDrop"><span>Toca para elegir la imagen</span><span class="small">JPG o PNG</span></label>
+        <input class="sr" type="file" id="capIn" accept="image/*"></div>
+      <label class="f">Número de referencia <small>Opcional</small><input class="in" id="pRef" inputmode="numeric"></label>
+      <button class="btn primary" id="paySend">Enviar comprobante</button>
+    </form>`);
+}
+function newPassSheet() {
+  openSheet(`${sheetHead('Nueva contraseña')}<form id="newPassForm" class="courses" style="gap:14px">
+    <label class="f">Escribe tu nueva contraseña<input class="in" id="npPass" type="password" minlength="6" required autocomplete="new-password"></label>
+    <button class="btn primary">Guardar contraseña</button></form>`);
+}
+async function shrink(file, max = 1600) {
+  try {
+    const img = await createImageBitmap(file); const k = Math.min(1, max / Math.max(img.width, img.height));
+    const cv = document.createElement('canvas'); cv.width = Math.round(img.width * k); cv.height = Math.round(img.height * k);
+    cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+    return await new Promise(r => cv.toBlob(b => r(b || file), 'image/jpeg', .88));
+  } catch (e) { return file; }
+}
+async function uploadMedia(file, prefix) {
+  const blob = await shrink(file, 1800);
+  const path = `${prefix}/${newId()}.jpg`;
+  const { error } = await sb.storage.from('media').upload(path, blob, { contentType: 'image/jpeg', cacheControl: '31536000' });
+  if (error) throw error;
+  return path;
+}
+const isStoragePath = p => p && !p.startsWith('images/') && !p.startsWith('http');
+
+/* ============ Render ============ */
+let lastRoute = '';
+function go(r) { location.hash = '/' + r; }
+function render() {
+  const route = location.hash.replace(/^#\/?/, '') || 'home';
+  const [v, a, b] = route.split('/');
+  let html, title = '';
+  if (!sb) html = vSetup();
+  else if (v === 'course') { html = vCourse(a); title = course(a)?.title || ''; }
+  else if (v === 'lesson') { html = vLesson(a, b); title = course(a)?.title || ''; }
+  else if (v === 'mine') html = vMine();
+  else if (v === 'profile') html = vProfile();
+  else if (v === 'admin') { html = isAdmin() ? vAdmin() : vNoAdmin(); title = 'Administradora'; }
+  else if (v === 'edit') { html = isAdmin() ? vEdit(a) : vNoAdmin(); title = 'Editar curso'; }
+  else html = vHome();
+  $('#view').innerHTML = html;
+  const tab = { course: 'home', lesson: 'mine', admin: 'profile', edit: 'profile' }[v] || v || 'home';
+  document.querySelectorAll('.tabs a').forEach(t => t.classList.toggle('on', t.dataset.tab === tab));
+  $('#top').hidden = ['home', 'mine', 'profile', ''].includes(v); $('#topTitle').textContent = title;
+  if (route !== lastRoute) { scrollTo(0, 0); lastRoute = route; }
+  after();
+}
+const embed = url => {
+  let m = url.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/|live\/)|youtu\.be\/)([\w-]{11})/);
+  if (m) return `https://www.youtube-nocookie.com/embed/${m[1]}?rel=0&modestbranding=1&playsinline=1`;
+  m = url.match(/vimeo\.com\/(?:video\/)?(\d+)(?:\/(\w+))?/);
+  if (m) return `https://player.vimeo.com/video/${m[1]}${m[2] ? '?h=' + m[2] : ''}`;
+  m = url.match(/(?:iframe|player)\.mediadelivery\.net\/(?:play|embed)\/(\d+)\/([\w-]+)/);
+  if (m) return `https://iframe.mediadelivery.net/embed/${m[1]}/${m[2]}?autoplay=false&preload=true&responsive=true`;
+  m = url.match(/(customer-[\w]+\.cloudflarestream\.com|iframe\.videodelivery\.net|watch\.cloudflarestream\.com)\/([a-f0-9]{32})/);
+  if (m) return m[1].startsWith('customer-') ? `https://${m[1]}/${m[2]}/iframe` : `https://iframe.videodelivery.net/${m[2]}`;
+  return null;
+};
+async function after() {
+  const sl = $('#slides'), dots = $('#dots');
+  clearInterval(window._auto);
+  if (sl && dots) {
+    sl.addEventListener('scroll', () => { const i = Math.round(sl.scrollLeft / sl.clientWidth); dots.querySelectorAll('i').forEach((d, j) => d.classList.toggle('on', i === j)); }, { passive: true });
+    if (!matchMedia('(prefers-reduced-motion: reduce)').matches) window._auto = setInterval(() => {
+      if (!document.body.contains(sl)) return clearInterval(window._auto);
+      const n = sl.children.length, i = Math.round(sl.scrollLeft / sl.clientWidth);
+      sl.scrollTo({ left: ((i + 1) % n) * sl.clientWidth, behavior: 'smooth' });
+    }, 5000);
+  }
+  for (const im of document.querySelectorAll('img[data-cap]')) {
+    if (!im.dataset.cap) { im.remove(); continue; }
+    const { data } = await sb.storage.from('captures').createSignedUrl(im.dataset.cap, 3600);
+    if (data?.signedUrl) im.src = data.signedUrl; else im.remove();
+  }
+  const p = $('#player');
+  if (p) {
+    const c = course(p.dataset.c), l = c?.lessons.find(x => x.id === p.dataset.lid);
+    if (!l) return;
+    const { data: vd, error: ve } = await sb.rpc('lesson_video', { lid: l.id });
+    const v = (vd && vd[0]) || {};
+    if (ve) { p.innerHTML = '<div class="empty">No se pudo cargar el video. Revisa tu conexión.</div>'; return; }
+    if (v.video_path) {
+      const { data, error } = await sb.storage.from('videos').createSignedUrl(v.video_path, 4 * 3600);
+      p.innerHTML = data?.signedUrl ? `<video controls playsinline preload="metadata" src="${esc(data.signedUrl)}" controlslist="nodownload"></video>`
+        : `<div class="empty">${error ? 'No se pudo cargar el video. Revisa tu conexión.' : 'Video no disponible.'}</div>`;
+    } else if (v.video_url) {
+      const e = embed(v.video_url);
+      if (e) p.innerHTML = `<iframe src="${esc(e)}" allow="autoplay; fullscreen; picture-in-picture; encrypted-media" allowfullscreen title="${esc(l.title)}"></iframe>`;
+      else if (/\.(mp4|webm|m4v|mov)(\?|$)/i.test(v.video_url)) p.innerHTML = `<video controls playsinline preload="metadata" src="${esc(v.video_url)}"></video>`;
+      else p.innerHTML = `<div class="empty">Este video se abre en otra pestaña.<a href="${esc(v.video_url)}" target="_blank" rel="noopener">Ver la lección</a></div>`;
+    } else p.innerHTML = `<div class="empty">El video de esta lección todavía no se ha subido.</div>`;
+    const vid = p.querySelector('video');
+    if (vid) vid.addEventListener('ended', () => { if (!done(l.id)) toggleDone(l.id, true); });
+  }
+}
+async function refresh() { await loadAll(); render(); }
+async function toggleDone(lid, quiet) {
+  if (!me()) return;
+  const was = done(lid);
+  if (was && !quiet) { delete S.done[lid]; render(); await sb.from('progress').delete().eq('user_id', S.user.id).eq('lesson_id', lid); }
+  else if (!was) { S.done[lid] = true; render(); await sb.from('progress').insert({ lesson_id: lid }); if (quiet) toast('Lección completada'); }
+}
+
+/* ============ Eventos ============ */
+let armed = null;
+document.addEventListener('click', async e => {
+  if (e.target.id === 'sheet') return closeSheet();
+  const t = e.target.closest('[data-act]');
+  if (!t) return;
+  const a = t.dataset.act;
+  try {
+    if (a === 'buy') buySheet(course(t.dataset.id));
+    else if (a === 'close') closeSheet();
+    else if (a === 'authMode') { authMode = t.dataset.m; render(); }
+    else if (a === 'copyBank') {
+      try { await navigator.clipboard.writeText(S.settings.bank); toast('Datos copiados'); }
+      catch (err) { const r = document.createRange(); r.selectNodeContents($('#bankTxt')); getSelection().removeAllRanges(); getSelection().addRange(r); toast('Datos seleccionados, cópialos'); }
+    }
+    else if (a === 'markDone') toggleDone(t.dataset.l);
+    else if (a === 'logout') { await sb.auth.signOut(); toast('Sesión cerrada'); go('home'); }
+    else if (a === 'install' && installEvt) { installEvt.prompt(); await installEvt.userChoice; installEvt = null; render(); }
+    else if (a === 'tab') { adminTab = t.dataset.t; render(); }
+    else if (a === 'approve' || a === 'reject') {
+      const r = S.allReqs.find(x => x.id === t.dataset.id); if (!r) return;
+      const done_ = busy(t, a === 'approve' ? 'Activando…' : 'Rechazando…');
+      if (a === 'approve') { const { error } = await sb.from('enrollments').upsert({ user_id: r.user_id, course_id: r.course_id }); if (error) { done_(); throw error; } }
+      const { error } = await sb.from('requests').update({ status: a === 'approve' ? 'aprobado' : 'rechazado' }).eq('id', r.id);
+      if (error) { done_(); throw error; }
+      await refresh(); toast(a === 'approve' ? `Curso activado para ${r.name}` : 'Comprobante rechazado');
+    }
+    else if (a === 'viewCap') {
+      const { data } = await sb.storage.from('captures').createSignedUrl(t.dataset.path, 3600);
+      openSheet(`${sheetHead('Comprobante')}${data?.signedUrl ? `<img src="${esc(data.signedUrl)}" alt="Capture del pago" style="border-radius:14px;width:100%">` : '<p class="note plain">No hay imagen guardada.</p>'}`);
+    }
+    else if (a === 'newCourse') {
+      const id = 'curso-' + newId().slice(0, 8);
+      const { error } = await sb.from('courses').insert({ id, title: 'Curso nuevo', kicker: 'Nuevo', sub: 'curso', band: 'rosa', price: 20, active: false, position: S.courses.length + 1 });
+      if (error) throw error;
+      await loadAll(); go('edit/' + id);
+    }
+    else if (a === 'delCover') {
+      const c = course(t.dataset.id); const old = c.cover_path;
+      const { error } = await sb.from('courses').update({ cover_path: null }).eq('id', c.id); if (error) throw error;
+      if (isStoragePath(old)) sb.storage.from('media').remove([old]);
+      await refresh(); toast('Portada quitada');
+    }
+    else if (a === 'delBanner') {
+      const list = [...(S.settings.banners || [])]; const [old] = list.splice(+t.dataset.i, 1);
+      const { error } = await sb.from('settings').update({ banners: list }).eq('id', 1); if (error) throw error;
+      if (isStoragePath(old)) sb.storage.from('media').remove([old]);
+      await refresh(); toast('Banner quitado');
+    }
+    else if (a === 'delCourse' || a === 'delL') {
+      const key = a + (t.dataset.id || t.dataset.l);
+      if (armed !== key) { armed = key; t.classList.add('armed'); t.textContent = 'Toca otra vez para confirmar'; setTimeout(() => { if (armed === key) { armed = null; render(); } }, 3000); return; }
+      armed = null;
+      if (a === 'delCourse') {
+        const c = course(t.dataset.id);
+        const vids = (await Promise.all(c.lessons.map(l => sb.rpc('lesson_video', { lid: l.id })))).map(x => x.data?.[0]?.video_path).filter(Boolean);
+        const { error } = await sb.from('courses').delete().eq('id', c.id); if (error) throw error;
+        if (vids.length) sb.storage.from('videos').remove(vids);
+        if (isStoragePath(c.cover_path)) sb.storage.from('media').remove([c.cover_path]);
+        await loadAll(); toast('Curso eliminado'); go('admin');
+      } else {
+        const l = course(t.dataset.c).lessons.find(x => x.id === t.dataset.l);
+        const { data: vd } = await sb.rpc('lesson_video', { lid: l.id });
+        const { error } = await sb.from('lessons').delete().eq('id', l.id); if (error) throw error;
+        if (vd?.[0]?.video_path) sb.storage.from('videos').remove([vd[0].video_path]);
+        await refresh(); toast('Lección quitada');
+      }
+    }
+    else if (a === 'setLink') {
+      const l = course(t.dataset.c).lessons.find(x => x.id === t.dataset.l);
+      const { data: vd } = await sb.rpc('lesson_video', { lid: l.id });
+      openSheet(`${sheetHead('Video de la lección')}<p class="muted">${esc(l.title)}</p>
+        <form id="linkForm" class="courses" style="gap:14px" data-l="${l.id}">
+          <label class="f">Enlace del video<small>Bunny Stream, Cloudflare Stream, YouTube (oculto) o Vimeo.</small><input class="in" id="lkUrl" type="url" required value="${esc(vd?.[0]?.video_url || '')}" placeholder="https://"></label>
+          <label class="f">Duración<input class="in" id="lkDur" value="${esc(l.dur || '')}" placeholder="25:40" pattern="\\d{1,2}:\\d{2}(:\\d{2})?"></label>
+          <button class="btn primary">Guardar video</button></form>`);
+    }
+    else if (a === 'moveL') {
+      const c = course(t.dataset.c), i = c.lessons.findIndex(l => l.id === t.dataset.l);
+      if (i <= 0) return;
+      const list = [...c.lessons]; [list[i - 1], list[i]] = [list[i], list[i - 1]];
+      await Promise.all(list.map((l, j) => sb.from('lessons').update({ position: j + 1 }).eq('id', l.id)));
+      await refresh();
+    }
+  } catch (err) { toast(friendly(err)); }
+});
+document.addEventListener('change', async e => {
+  const el = e.target;
+  try {
+    if (el.dataset.toggle) {
+      const c = course(el.dataset.toggle);
+      const { error } = await sb.from('courses').update({ active: el.checked }).eq('id', c.id); if (error) throw error;
+      await refresh(); toast(el.checked ? 'Curso visible en el catálogo' : 'Curso oculto');
+    }
+    if (el.id === 'capIn' && el.files[0]) {
+      capFile = el.files[0];
+      $('#capDrop').innerHTML = `<img src="${URL.createObjectURL(capFile)}" alt="Vista previa del capture"><span class="small">Toca para cambiarla</span>`;
+    }
+    if (el.id === 'covIn' && el.files[0]) {
+      toast('Subiendo portada…');
+      const c = course(el.dataset.id); const old = c.cover_path;
+      const path = await uploadMedia(el.files[0], 'covers');
+      const { error } = await sb.from('courses').update({ cover_path: path }).eq('id', c.id); if (error) throw error;
+      if (isStoragePath(old)) sb.storage.from('media').remove([old]);
+      await refresh(); toast('Portada actualizada');
+    }
+    if (el.id === 'banIn' && el.files[0]) {
+      toast('Subiendo banner…');
+      const path = await uploadMedia(el.files[0], 'banners');
+      const { error } = await sb.from('settings').update({ banners: [...(S.settings.banners || []), path] }).eq('id', 1); if (error) throw error;
+      await refresh(); toast('Banner agregado');
+    }
+    if (el.id === 'lFile' && el.files[0]) {
+      const f = el.files[0];
+      if (f.size > MAX_VIDEO_MB * 1024 * 1024) toast(`Este video pesa ${Math.round(f.size / 1048576)} MB. El máximo es ${MAX_VIDEO_MB} MB; mejor usa un enlace.`);
+      const v = document.createElement('video'); v.preload = 'metadata';
+      v.onloadedmetadata = () => { if (isFinite(v.duration)) $('#lDur').value = mmss(v.duration); URL.revokeObjectURL(v.src); };
+      v.src = URL.createObjectURL(f);
+      if (!$('#lTitle').value) $('#lTitle').value = f.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ');
+    }
+  } catch (err) { toast(friendly(err)); }
+});
+document.addEventListener('submit', async e => {
+  e.preventDefault();
+  const f = e.target;
+  const btn = f.querySelector('button:not([type=button])');
+  let restore = () => {};
+  try {
+    if (f.id === 'authForm') {
+      const email = $('#aEmail').value.trim().toLowerCase(), password = $('#aPass').value;
+      if (authMode === 'up') {
+        restore = busy(btn, 'Creando cuenta…');
+        const name = $('#aName').value.trim();
+        const { data, error } = await sb.auth.signUp({ email, password, options: { data: { name }, emailRedirectTo: location.origin + location.pathname } });
+        if (error) throw error;
+        restore();
+        if (!data.session) openSheet(`${sheetHead('Revisa tu correo')}<p>Te enviamos un enlace a <b>${esc(email)}</b>. Ábrelo para confirmar tu cuenta y luego entra con tu contraseña.</p><p class="small muted">Si no lo ves, revisa la carpeta de spam.</p><button class="btn primary" data-act="close">Entendido</button>`);
+        authMode = 'in';
+      } else {
+        restore = busy(btn, 'Entrando…');
+        const { error } = await sb.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+      }
+    }
+    else if (f.id === 'forgotForm') {
+      restore = busy(btn, 'Enviando…');
+      const { error } = await sb.auth.resetPasswordForEmail($('#fEmail').value.trim(), { redirectTo: location.origin + location.pathname });
+      if (error) throw error;
+      restore(); authMode = 'in'; render(); toast('Te enviamos el enlace. Revisa tu correo.');
+    }
+    else if (f.id === 'newPassForm') {
+      restore = busy(btn, 'Guardando…');
+      const { error } = await sb.auth.updateUser({ password: $('#npPass').value }); if (error) throw error;
+      closeSheet(); toast('Contraseña actualizada');
+    }
+    else if (f.id === 'payForm') {
+      if (!capFile) return toast('Sube el capture del pago');
+      restore = busy(btn, 'Enviando…');
+      const c = course(f.dataset.id); const rid = newId();
+      const path = `${S.user.id}/${rid}.jpg`;
+      const up = await sb.storage.from('captures').upload(path, await shrink(capFile, 1400), { contentType: 'image/jpeg' });
+      if (up.error) throw up.error;
+      const { error } = await sb.from('requests').insert({ id: rid, email: S.user.email, name: S.user.name, course_id: c.id, amount: c.price, ref: $('#pRef').value.trim() || null, capture_path: path });
+      if (error) throw error;
+      closeSheet(); await refresh(); toast('Comprobante enviado');
+    }
+    else if (f.id === 'setForm') {
+      restore = busy(btn, 'Guardando…');
+      const { error } = await sb.from('settings').update({ bank: $('#sBank').value, whatsapp: $('#sWa').value.trim(), email: $('#sEmail').value.trim() }).eq('id', 1);
+      if (error) throw error;
+      await refresh(); toast('Ajustes guardados');
+    }
+    else if (f.id === 'courseForm') {
+      restore = busy(btn, 'Guardando…');
+      const { error } = await sb.from('courses').update({ title: $('#cTitle').value.trim(), tagline: $('#cTag').value.trim(), price: +$('#cPrice').value || 0, level: $('#cLevel').value,
+        kicker: $('#cKick').value.trim(), sub: $('#cSub').value.trim(), band: f.querySelector('[name=band]:checked')?.value || 'rosa' }).eq('id', f.dataset.id);
+      if (error) throw error;
+      await refresh(); toast('Curso guardado');
+    }
+    else if (f.id === 'linkForm') {
+      restore = busy(btn, 'Guardando…');
+      const { error } = await sb.from('lessons').update({ video_url: $('#lkUrl').value.trim(), video_path: null, dur: $('#lkDur').value.trim() }).eq('id', f.dataset.l);
+      if (error) throw error;
+      closeSheet(); await refresh(); toast('Video guardado');
+    }
+    else if (f.id === 'lessonForm') {
+      const c = course(f.dataset.id); const file = $('#lFile').files[0]; const url = $('#lUrl').value.trim();
+      if (file && file.size > MAX_VIDEO_MB * 1024 * 1024) return toast(`El video pesa más de ${MAX_VIDEO_MB} MB. Súbelo a YouTube (oculto) o Vimeo y pega el enlace.`);
+      const lid = newId(); const row = { id: lid, course_id: c.id, title: $('#lTitle').value.trim(), dur: $('#lDur').value.trim(), position: c.lessons.length + 1 };
+      if (file) {
+        restore = busy(btn, 'Subiendo video… no cierres la app');
+        const ext = (file.name.split('.').pop() || 'mp4').toLowerCase();
+        const path = `${c.id}/${lid}.${ext}`;
+        const { error } = await sb.storage.from('videos').upload(path, file, { contentType: file.type || 'video/mp4' });
+        if (error) throw error;
+        row.video_path = path;
+      } else if (url) row.video_url = url;
+      restore = busy(btn, 'Guardando…');
+      const { error } = await sb.from('lessons').insert(row); if (error) throw error;
+      await refresh(); toast('Lección agregada');
+    }
+  } catch (err) { restore(); toast(friendly(err)); }
+});
+$('#back').addEventListener('click', () => history.length > 1 ? history.back() : go('home'));
+addEventListener('hashchange', render);
+addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; if (location.hash.includes('profile')) render(); });
+addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#sheet').hidden) closeSheet(); });
+addEventListener('online', refresh);
+if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) navigator.serviceWorker.register('sw.js').catch(() => {});
+
+render();
+if (sb) {
+  sb.auth.onAuthStateChange((event) => {
+    if (event === 'PASSWORD_RECOVERY') { go('profile'); setTimeout(newPassSheet, 300); }
+    if (['SIGNED_IN', 'SIGNED_OUT', 'USER_UPDATED'].includes(event)) setTimeout(async () => { await refresh(); if (event === 'SIGNED_IN' && location.hash.includes('profile')) toast('Hola, ' + (S.user?.name || '').split(' ')[0]); }, 0);
+  });
+  refresh();
+}
