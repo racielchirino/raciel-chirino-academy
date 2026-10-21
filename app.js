@@ -28,7 +28,7 @@ async function loadAll() {
   try {
     const { data: { session } } = await sb.auth.getSession();
     const u = session?.user;
-    S.user = u ? { id: u.id, email: (u.email || '').toLowerCase(), name: u.user_metadata?.name || (u.email || '').split('@')[0] } : null;
+    S.user = u ? { id: u.id, email: (u.email || '').toLowerCase(), name: u.user_metadata?.name || u.user_metadata?.full_name || (u.email || '').split('@')[0] } : null;
     const [st, cs, ls] = await Promise.all([
       sb.from('settings').select('*').eq('id', 1).maybeSingle(),
       sb.from('courses').select('*').order('position').order('created_at'),
@@ -83,6 +83,7 @@ const ic = {
   play: '<svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>',
   check: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>',
   x: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+  google: '<svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>',
   chev: '<svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>'
 };
 function coverEl(c, cls = '') {
@@ -193,7 +194,9 @@ function vProfile() {
     ? `<form class="panel" id="forgotForm"><b style="font-weight:500;font-size:1.1rem">Recupera tu contraseña</b><p class="muted small">Te enviaremos un enlace a tu correo para crear una nueva.</p>
         <label class="f">Correo<input class="in" id="fEmail" type="email" required autocomplete="email"></label>
         <button class="btn primary">Enviar enlace</button><button type="button" class="btn" data-act="authMode" data-m="in">Volver</button></form>`
-    : `<div class="seg"><button class="${authMode === 'in' ? 'on' : ''}" data-act="authMode" data-m="in">Entrar</button><button class="${authMode === 'up' ? 'on' : ''}" data-act="authMode" data-m="up">Crear cuenta</button></div>
+    : `<button class="btn block gbtn" data-act="google">${ic.google}Continuar con Google</button>
+      <div class="or"><span>o con tu correo</span></div>
+      <div class="seg"><button class="${authMode === 'in' ? 'on' : ''}" data-act="authMode" data-m="in">Entrar</button><button class="${authMode === 'up' ? 'on' : ''}" data-act="authMode" data-m="up">Crear cuenta</button></div>
       <form class="panel" id="authForm">
         ${authMode === 'up' ? '<label class="f">Nombre y apellido<input class="in" id="aName" required autocomplete="name"></label>' : ''}
         <label class="f">Correo<input class="in" id="aEmail" type="email" required autocomplete="email"></label>
@@ -437,6 +440,10 @@ document.addEventListener('click', async e => {
   try {
     if (a === 'buy') buySheet(course(t.dataset.id));
     else if (a === 'close') closeSheet();
+    else if (a === 'google') {
+      const { error } = await sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: location.origin + location.pathname, queryParams: { prompt: 'select_account' } } });
+      if (error) throw error;
+    }
     else if (a === 'authMode') { authMode = t.dataset.m; render(); }
     else if (a === 'copyBank') {
       try { await navigator.clipboard.writeText(S.settings.bank); toast('Datos copiados'); }
