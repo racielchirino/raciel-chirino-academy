@@ -1,0 +1,717 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Raciel Chirino Academy</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Cursos online de edición de video, redes sociales y community management con Raciel Chirino.">
+<meta name="theme-color" content="#10292B">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="RCH Academy">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: app de una columna, barra superior oscura (la "sala de edición"), contenido claro, navegación inferior fija.
+   Detalle propio: cada curso se dibuja como una pista de línea de tiempo donde cada clip mide lo que dura su lección. */
+:root{
+  --paper:#F1F4F3; --surface:#FFFFFF; --ink:#10292B; --muted:#56696A; --line:#D5DEDC;
+  --deep:#10292B; --on-deep:#F4F7F6; --on-deep-muted:#9DB3B2;
+  --accent:#F2A900; --on-accent:#10292B;
+  --ok:#1C7C52; --ok-bg:#E1F2E9; --warn:#8A5A00; --warn-bg:#FCF0D2; --bad:#B23A1D; --bad-bg:#FBE4DD;
+  --clip-1:#F2A900; --clip-2:#E8604C; --clip-3:#2BB3A3;
+  --f-display:"Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --f-body:"Figtree", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --f-mono:"IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --r:14px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --paper:#0B1819; --surface:#122426; --ink:#E6EEED; --muted:#93A8A7; --line:#22393B;
+  --deep:#071112; --on-deep:#EEF4F3; --on-deep-muted:#87A09F;
+  --accent:#F5B526; --on-accent:#10292B;
+  --ok:#5BD49A; --ok-bg:#12332A; --warn:#F2C25C; --warn-bg:#352A10; --bad:#FF8E70; --bad-bg:#3A1C15;
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --paper:#0B1819; --surface:#122426; --ink:#E6EEED; --muted:#93A8A7; --line:#22393B;
+  --deep:#071112; --on-deep:#EEF4F3; --on-deep-muted:#87A09F;
+  --accent:#F5B526; --on-accent:#10292B;
+  --ok:#5BD49A; --ok-bg:#12332A; --warn:#F2C25C; --warn-bg:#352A10; --bad:#FF8E70; --bad-bg:#3A1C15;
+  color-scheme:dark}
+
+*{box-sizing:border-box}
+html,body{min-height:100%}
+body{margin:0;background:var(--paper);color:var(--ink);font:400 16px/1.55 var(--f-body);-webkit-font-smoothing:antialiased;
+  padding-bottom:calc(72px + env(safe-area-inset-bottom,0px))}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:30;background:var(--deep)}
+h1,h2,h3{font-family:var(--f-display);line-height:1.12;text-wrap:balance;margin:0;letter-spacing:-.01em}
+h1{font-size:clamp(1.8rem,6vw,2.6rem);font-weight:800}
+h2{font-size:1.25rem;font-weight:800}
+h3{font-size:1.1rem;font-weight:600}
+p{margin:0}
+a{color:inherit}
+button,input,textarea,select{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px;border-radius:6px}
+.wrap{max-width:760px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+
+/* Barra superior */
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--deep);color:var(--on-deep)}
+.bar .wrap{display:flex;align-items:center;gap:10px;min-height:58px;padding-block:8px}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;min-width:0}
+.brand img{width:34px;height:34px;border-radius:9px;flex:none}
+.brand b{font-family:var(--f-display);font-weight:800;font-size:1.02rem;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brand small{display:block;font:500 .68rem/1 var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--on-deep-muted);margin-top:3px}
+.back{background:none;border:0;color:var(--on-deep);width:38px;height:38px;border-radius:10px;display:grid;place-items:center;cursor:pointer;flex:none}
+.back:hover{background:rgba(255,255,255,.08)}
+
+main{padding-block:22px 28px}
+.stack{display:flex;flex-direction:column;gap:18px}
+
+/* Intro */
+.intro{display:flex;flex-direction:column;gap:10px;padding-block:6px 4px}
+.eyebrow{font:500 .74rem/1 var(--f-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.lead{color:var(--muted);max-width:56ch;font-size:1.04rem}
+.lead strong{color:var(--ink);font-weight:600}
+
+/* Portada de curso = pista de línea de tiempo */
+.cover{--c:var(--clip-1);position:relative;background:var(--deep);color:var(--on-deep);border-radius:var(--r);padding:18px 18px 16px;display:flex;flex-direction:column;gap:22px;overflow:hidden}
+.cover-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.cover-mark{font:800 2.4rem/1 var(--f-display);color:var(--c);letter-spacing:-.03em}
+.tc{font:500 .78rem/1 var(--f-mono);color:var(--on-deep-muted);letter-spacing:.04em;font-variant-numeric:tabular-nums;white-space:nowrap}
+.track{display:flex;gap:4px;height:14px}
+.track i{display:block;background:var(--c);border-radius:4px;opacity:.95;min-width:6px}
+.track i:nth-child(even){opacity:.62}
+.ruler{display:flex;justify-content:space-between;font:500 .66rem/1 var(--f-mono);color:var(--on-deep-muted);margin-top:-14px}
+
+.list{display:flex;flex-direction:column;gap:16px}
+.card{display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:calc(var(--r) + 4px);padding:6px;text-decoration:none;transition:transform .15s ease,border-color .15s}
+.card:hover{border-color:var(--muted)}
+.card:active{transform:scale(.99)}
+.card-body{padding:14px 12px 12px;display:flex;flex-direction:column;gap:8px}
+.card-body p{color:var(--muted);font-size:.95rem}
+.meta{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;font-size:.86rem;color:var(--muted)}
+.price{margin-left:auto;font:800 1.3rem/1 var(--f-display);color:var(--ink)}
+
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:.78rem;font-weight:600;padding:4px 10px;border-radius:999px;background:var(--paper);color:var(--muted);border:1px solid var(--line);width:max-content}
+.chip.ok{background:var(--ok-bg);color:var(--ok);border-color:transparent}
+.chip.warn{background:var(--warn-bg);color:var(--warn);border-color:transparent}
+.chip.bad{background:var(--bad-bg);color:var(--bad);border-color:transparent}
+
+/* Botones */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:0 20px;border-radius:12px;border:1px solid var(--line);background:var(--surface);font-weight:600;cursor:pointer;text-decoration:none}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.btn.primary:hover{filter:brightness(1.05)}
+.btn.dark{background:var(--ink);border-color:var(--ink);color:var(--paper)}
+.btn.danger{color:var(--bad)}
+.btn.danger.armed{background:var(--bad);border-color:var(--bad);color:#fff}
+.btn.sm{min-height:38px;padding:0 14px;font-size:.9rem;border-radius:10px}
+.btn.block{width:100%}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+
+/* Detalle */
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px;display:flex;flex-direction:column;gap:12px}
+.note{padding:14px 16px;border-radius:12px;font-size:.95rem}
+.note.warn{background:var(--warn-bg);color:var(--warn)}
+.note.bad{background:var(--bad-bg);color:var(--bad)}
+.note.ok{background:var(--ok-bg);color:var(--ok)}
+.note.plain{background:var(--paper);color:var(--muted);border:1px dashed var(--line)}
+
+.lessons{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;border:1px solid var(--line);border-radius:var(--r);background:var(--surface);overflow:hidden}
+.lessons li+li{border-top:1px solid var(--line)}
+.lesson{display:grid;grid-template-columns:34px 1fr auto;align-items:center;gap:12px;padding:13px 14px;text-decoration:none;min-height:56px}
+a.lesson:hover{background:var(--paper)}
+.lesson .n{font:500 .8rem/1 var(--f-mono);color:var(--muted);font-variant-numeric:tabular-nums}
+.lesson .t{min-width:0}
+.lesson .t span{display:block;font-size:.8rem;color:var(--muted)}
+.lesson.done .n{color:var(--ok)}
+.lesson.current{background:var(--paper)}
+.lesson .ic{color:var(--muted)}
+
+/* Reproductor */
+.player{background:#000;border-radius:var(--r);overflow:hidden;aspect-ratio:16/9;max-width:100%;display:grid;place-items:center}
+.player video{width:100%;height:100%;display:block;background:#000}
+.player .empty{color:#C9D6D5;text-align:center;padding:24px;display:flex;flex-direction:column;gap:10px;align-items:center}
+.player .empty a{color:#F5B526;font-weight:600}
+
+.progress{height:8px;border-radius:99px;background:var(--line);overflow:hidden}
+.progress span{display:block;height:100%;background:var(--accent);border-radius:99px}
+
+/* Formularios */
+label.f{display:flex;flex-direction:column;gap:6px;font-size:.88rem;font-weight:600}
+label.f small{font-weight:400;color:var(--muted)}
+.in{width:100%;min-height:48px;border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:10px 14px;font-weight:400;font-size:1rem}
+textarea.in{min-height:140px;resize:vertical;line-height:1.5}
+.in:focus{border-color:var(--ink);outline:none}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:520px){.grid2{grid-template-columns:1fr}}
+
+.bank{white-space:pre-wrap;font:500 .92rem/1.6 var(--f-mono);background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:14px;margin:0;overflow-x:auto}
+.drop{border:2px dashed var(--line);border-radius:12px;padding:18px;text-align:center;cursor:pointer;color:var(--muted);display:flex;flex-direction:column;gap:6px;align-items:center}
+.drop:hover{border-color:var(--muted)}
+.drop img{max-height:220px;border-radius:8px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+
+/* Admin */
+.seg{display:flex;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:4px}
+.seg button{flex:1;min-height:40px;border:0;border-radius:9px;background:none;font-weight:600;cursor:pointer;color:var(--muted);font-size:.92rem}
+.seg button.on{background:var(--ink);color:var(--paper)}
+.badge{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 6px;border-radius:99px;background:var(--accent);color:var(--on-accent);font-size:.72rem;margin-left:4px}
+.req{display:grid;grid-template-columns:72px 1fr;gap:14px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px}
+.req .thumb{width:72px;height:96px;border-radius:8px;background:var(--paper);border:1px solid var(--line);object-fit:cover;cursor:zoom-in;padding:0;overflow:hidden}
+.req .thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.req .info{min-width:0;display:flex;flex-direction:column;gap:6px}
+.req .info b{overflow-wrap:anywhere}
+.req .info span{font-size:.85rem;color:var(--muted);overflow-wrap:anywhere}
+.crow{display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px}
+.crow .t{flex:1;min-width:0}
+.crow .t span{display:block;font-size:.84rem;color:var(--muted)}
+.dot{width:12px;height:12px;border-radius:4px;flex:none}
+.switch{position:relative;width:48px;height:28px;flex:none}
+.switch input{position:absolute;inset:0;opacity:0;margin:0;cursor:pointer}
+.switch span{position:absolute;inset:0;border-radius:99px;background:var(--line);transition:background .15s;pointer-events:none}
+.switch span::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:var(--surface);box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .15s}
+.switch input:checked+span{background:var(--ok)}
+.switch input:checked+span::after{transform:translateX(20px)}
+.switch input:focus-visible+span{outline:3px solid var(--accent);outline-offset:2px}
+.hues{display:flex;gap:10px}
+.hues label{position:relative;cursor:pointer}
+.hues input{position:absolute;opacity:0}
+.hues i{display:block;width:36px;height:36px;border-radius:10px;border:3px solid transparent}
+.hues input:checked+i{border-color:var(--ink)}
+.hues input:focus-visible+i{outline:3px solid var(--accent);outline-offset:2px}
+.elesson{display:grid;grid-template-columns:28px 1fr auto;gap:10px;align-items:center;padding:12px 14px}
+.elesson .t{min-width:0}
+.elesson .t span{display:block;font-size:.8rem;color:var(--muted)}
+
+/* Navegación inferior */
+.tabs{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
+.tabs .wrap{display:grid;grid-template-columns:repeat(3,1fr)}
+.tabs a{display:flex;flex-direction:column;align-items:center;gap:3px;padding:9px 4px 10px;font-size:.74rem;font-weight:600;color:var(--muted);text-decoration:none}
+.tabs a.on{color:var(--ink)}
+.tabs a.on svg{color:var(--ink)}
+.tabs a.on .pip{background:var(--accent)}
+.pip{width:22px;height:4px;border-radius:99px;background:transparent;margin-bottom:2px}
+
+/* Hoja inferior */
+.sheet{position:fixed;inset:0;z-index:40;display:flex;align-items:flex-end;justify-content:center;background:rgba(5,14,15,.55)}
+.sheet-in{background:var(--paper);width:100%;max-width:560px;max-height:92vh;overflow:auto;border-radius:20px 20px 0 0;
+  padding:20px max(18px,env(safe-area-inset-right,0px)) calc(22px + env(safe-area-inset-bottom,0px)) max(18px,env(safe-area-inset-left,0px));
+  display:flex;flex-direction:column;gap:14px;animation:up .2s ease-out}
+.sheet-head{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.x{background:var(--surface);border:1px solid var(--line);width:38px;height:38px;border-radius:10px;cursor:pointer;flex:none;display:grid;place-items:center}
+@keyframes up{from{transform:translateY(24px);opacity:.6}to{transform:none;opacity:1}}
+@media (min-width:640px){.sheet{align-items:center}.sheet-in{border-radius:20px}}
+
+.toast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:50;background:var(--ink);color:var(--paper);padding:12px 18px;border-radius:12px;font-weight:600;font-size:.92rem;max-width:calc(100% - 32px);box-shadow:0 8px 24px rgba(0,0,0,.2)}
+.muted{color:var(--muted)}
+.small{font-size:.86rem}
+.center{text-align:center}
+@media (min-width:700px){.list{display:grid;grid-template-columns:1fr 1fr}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<header class="bar">
+  <div class="wrap">
+    <button class="back" id="back" type="button" aria-label="Volver" hidden>
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+    </button>
+    <a class="brand" href="#/home">
+      <img src="icons/icon-192.png" alt="">
+      <span><b>Raciel Chirino Academy</b><small>Cursos online</small></span>
+    </a>
+  </div>
+</header>
+
+<main class="wrap" id="view" aria-live="polite"></main>
+
+<nav class="tabs" aria-label="Secciones">
+  <div class="wrap">
+    <a href="#/home" data-tab="home"><span class="pip"></span>
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M10 9.5v5l4.5-2.5z" fill="currentColor"/></svg>Cursos</a>
+    <a href="#/mine" data-tab="mine"><span class="pip"></span>
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5V5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M8 7h7"/></svg>Mis cursos</a>
+    <a href="#/profile" data-tab="profile"><span class="pip"></span>
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>Perfil</a>
+  </div>
+</nav>
+
+<div class="sheet" id="sheet" hidden><div class="sheet-in" id="sheetIn" role="dialog" aria-modal="true"></div></div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+/* ============ Datos ============ */
+const LS = 'rca_v1';
+const $ = s => document.querySelector(s);
+const uid = () => Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-3);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const L = (title, dur) => ({ id: uid(), title, dur, src: null });
+
+function seed() {
+  return {
+    settings: {
+      pin: '1234',
+      bank: 'Pago Móvil\nBanco: (escribe tu banco)\nTeléfono: 0414-000.00.00\nCédula: V-00.000.000\n\nZelle\nCorreo: (escribe tu correo Zelle)\nTitular: Raciel Chirino',
+      whatsapp: '',
+      email: 'contacto@racielchirinoacademy.com'
+    },
+    courses: [
+      { id: 'capcut', title: 'Edición de video con CapCut', short: 'CapCut', hue: 1, price: 25, level: 'Principiante', active: true,
+        tagline: 'De la grabación al reel publicado: cortes con ritmo, textos animados, subtítulos y exportación para cada red.',
+        lessons: [L('Conoce la interfaz de CapCut','06:40'), L('Cortes y ritmo en la línea de tiempo','11:20'), L('Textos animados y subtítulos automáticos','09:05'), L('Transiciones y efectos sin exagerar','08:30'), L('Exportar en 1080p para Reels y TikTok','05:15')] },
+      { id: 'redes', title: 'Estrategia de redes sociales', short: 'Redes', hue: 2, price: 30, level: 'Principiante', active: true,
+        tagline: 'Define a quién le hablas, qué publicar cada semana y cómo leer tus métricas para crecer con intención.',
+        lessons: [L('Define tu cliente ideal','08:10'), L('Pilares de contenido','10:25'), L('Calendario editorial de 30 días','12:00'), L('Lectura de métricas en Instagram','09:40')] },
+      { id: 'cm', title: 'Diplomado en Community Management', short: 'CM', hue: 3, price: 60, level: 'Intermedio', active: true,
+        tagline: 'Gestiona comunidades para marcas y clientes: tono de voz, atención, crisis, reportes y cómo cotizar tu trabajo.',
+        lessons: [L('El rol del community manager','07:30'), L('Tono de voz y guía de marca','11:10'), L('Comentarios, mensajes y manejo de crisis','13:45'), L('Reportes mensuales para clientes','10:20'), L('Cómo cotizar tus servicios','09:55'), L('Proyecto final','06:00')] }
+    ],
+    requests: [], enroll: {}, progress: {}, user: null
+  };
+}
+function load() { try { const d = JSON.parse(localStorage.getItem(LS)); if (d && d.courses) return d; } catch (e) {} return seed(); }
+function save() { try { localStorage.setItem(LS, JSON.stringify(S)); } catch (e) { toast('No se pudo guardar en este dispositivo'); } }
+let S = load(); save();
+
+/* Archivos grandes (videos y comprobantes) en IndexedDB */
+const idb = {
+  _db: null,
+  open() { return this._db || (this._db = new Promise((res, rej) => { const r = indexedDB.open('rca', 1); r.onupgradeneeded = () => r.result.createObjectStore('blobs'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); })); },
+  async tx(mode, fn) { const d = await this.open(); return new Promise((res, rej) => { const t = d.transaction('blobs', mode); const st = t.objectStore('blobs'); const r = fn(st); t.oncomplete = () => res(r && r.result); t.onerror = () => rej(t.error); }); },
+  put(k, v) { return this.tx('readwrite', s => s.put(v, k)); },
+  get(k) { return this.tx('readonly', s => s.get(k)); },
+  del(k) { return this.tx('readwrite', s => s.delete(k)); }
+};
+
+/* ============ Utilidades ============ */
+const sec = d => { const p = String(d || '').split(':').map(Number); if (p.some(isNaN)) return 0; return p.reduce((a, b) => a * 60 + b, 0); };
+const mmss = s => { s = Math.round(s); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60; return (h ? h + ':' + String(m).padStart(2, '0') : String(m).padStart(2, '0')) + ':' + String(x).padStart(2, '0'); };
+const total = c => c.lessons.reduce((a, l) => a + sec(l.dur), 0);
+const human = s => { const h = Math.floor(s / 3600), m = Math.round(s % 3600 / 60); return h ? `${h} h ${m} min` : `${m} min`; };
+const course = id => S.courses.find(c => c.id === id);
+const me = () => S.user && S.user.email;
+const hasAccess = cid => !!(me() && (S.enroll[me()] || []).includes(cid));
+const lastReq = cid => me() && [...S.requests].reverse().find(r => r.email === me() && r.courseId === cid);
+const done = lid => !!(me() && S.progress[me()] && S.progress[me()][lid]);
+const fecha = t => new Date(t).toLocaleDateString('es', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+let toastT;
+function toast(m) { const t = $('#toast'); t.textContent = m; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, 2600); }
+const ic = {
+  lock: '<svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>',
+  play: '<svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>',
+  check: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>',
+  x: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>'
+};
+
+/* ============ Vistas ============ */
+function cover(c, big) {
+  const t = total(c);
+  return `<div class="cover" style="--c:var(--clip-${c.hue || 1})">
+    <div class="cover-top"><span class="cover-mark">${esc(c.short || c.title.split(' ')[0])}</span><span class="tc">${c.lessons.length} clips · ${mmss(t)}</span></div>
+    <div class="track" aria-hidden="true">${c.lessons.map(l => `<i style="flex:${sec(l.dur) || 60}"></i>`).join('') || '<i style="flex:1;opacity:.2"></i>'}</div>
+    ${big ? `<div class="ruler" aria-hidden="true"><span>00:00</span><span>${mmss(t / 2)}</span><span>${mmss(t)}</span></div>` : ''}
+  </div>`;
+}
+function statusChip(c) {
+  if (hasAccess(c.id)) return '<span class="chip ok">Tienes acceso</span>';
+  const r = lastReq(c.id);
+  if (r && r.status === 'pendiente') return '<span class="chip warn">Pago en revisión</span>';
+  return '';
+}
+function vHome() {
+  const list = S.courses.filter(c => c.active);
+  return `<div class="stack">
+    <section class="intro">
+      <p class="eyebrow">Escuela de contenido digital</p>
+      <h1>Crea contenido que la gente sí quiere ver.</h1>
+      <p class="lead">Aprende <strong>edición de video, redes sociales y community management</strong> con Raciel Chirino, diseñadora gráfica y estratega digital. A tu ritmo, desde el teléfono.</p>
+    </section>
+    <section class="list">${list.map(c => `
+      <a class="card" href="#/course/${c.id}">
+        ${cover(c)}
+        <div class="card-body">
+          ${statusChip(c)}
+          <h3>${esc(c.title)}</h3>
+          <p>${esc(c.tagline)}</p>
+          <div class="meta"><span>${esc(c.level)}</span><span>${c.lessons.length} lecciones · ${human(total(c))}</span><span class="price">$${esc(c.price)}</span></div>
+        </div>
+      </a>`).join('') || '<p class="note plain">Pronto habrá cursos disponibles.</p>'}
+    </section>
+  </div>`;
+}
+function lessonRows(c, currentId) {
+  const acc = hasAccess(c.id);
+  return `<ol class="lessons">${c.lessons.map((l, i) => {
+    const d = done(l.id);
+    const inner = `<span class="n">${d ? ic.check : String(i + 1).padStart(2, '0')}</span><span class="t">${esc(l.title)}<span>${esc(l.dur || '--:--')}</span></span>${acc ? ic.play : ic.lock}`;
+    return `<li>${acc ? `<a class="lesson${d ? ' done' : ''}${l.id === currentId ? ' current' : ''}" href="#/lesson/${c.id}/${l.id}">${inner}</a>` : `<div class="lesson">${inner}</div>`}</li>`;
+  }).join('')}</ol>`;
+}
+function vCourse(id) {
+  const c = course(id);
+  if (!c || (!c.active && !hasAccess(id))) return `<p class="note plain">Este curso no está disponible.</p>`;
+  const acc = hasAccess(id), r = lastReq(id);
+  const next = c.lessons.find(l => !done(l.id)) || c.lessons[0];
+  let action;
+  if (acc) action = next ? `<a class="btn primary block" href="#/lesson/${c.id}/${next.id}">${c.lessons.some(l => done(l.id)) ? 'Continuar' : 'Empezar el curso'}</a>` : `<p class="note plain">Las lecciones se están preparando.</p>`;
+  else if (r && r.status === 'pendiente') action = `<p class="note warn"><b>Recibimos tu comprobante.</b> Raciel lo está revisando y activará tu curso en cuanto confirme el pago.</p>`;
+  else action = `${r && r.status === 'rechazado' ? `<p class="note bad">Tu último comprobante no se pudo confirmar. Revisa los datos del pago y envíalo de nuevo.</p>` : ''}
+    <button class="btn primary block" data-act="buy" data-id="${c.id}">Inscribirme por $${esc(c.price)}</button>
+    <p class="small muted center">Pagas por transferencia o Pago Móvil y subes el capture. Tu acceso queda activo cuando se confirma el pago.</p>`;
+  return `<div class="stack">
+    ${cover(c, true)}
+    <div class="stack" style="gap:10px">
+      <p class="eyebrow">${esc(c.level)} · ${c.lessons.length} lecciones · ${human(total(c))}</p>
+      <h1>${esc(c.title)}</h1>
+      <p class="lead">${esc(c.tagline)}</p>
+    </div>
+    <div class="panel">${action}</div>
+    <h2>Contenido del curso</h2>
+    ${lessonRows(c)}
+  </div>`;
+}
+function vLesson(cid, lid) {
+  const c = course(cid);
+  if (!c || !hasAccess(cid)) { setTimeout(() => go('course/' + cid)); return ''; }
+  const i = c.lessons.findIndex(l => l.id === lid), l = c.lessons[i];
+  if (!l) return `<p class="note plain">Lección no encontrada.</p>`;
+  const nx = c.lessons[i + 1], d = done(l.id);
+  const n = c.lessons.filter(x => done(x.id)).length;
+  return `<div class="stack">
+    <div class="player" id="player" data-lid="${l.id}"><div class="empty">Cargando video…</div></div>
+    <div class="stack" style="gap:8px">
+      <p class="eyebrow">Lección ${i + 1} de ${c.lessons.length} · ${esc(l.dur || '')}</p>
+      <h1 style="font-size:1.6rem">${esc(l.title)}</h1>
+      <p class="muted small">${esc(c.title)}</p>
+    </div>
+    <div class="row">
+      <button class="btn ${d ? '' : 'dark'}" data-act="markDone" data-c="${c.id}" data-l="${l.id}">${d ? ic.check + ' Vista' : 'Marcar como vista'}</button>
+      ${nx ? `<a class="btn primary" href="#/lesson/${c.id}/${nx.id}">Siguiente lección</a>` : ''}
+    </div>
+    <div class="stack" style="gap:8px"><div class="row" style="justify-content:space-between"><b>Tu avance</b><span class="muted small">${n} de ${c.lessons.length}</span></div>
+      <div class="progress"><span style="width:${c.lessons.length ? n / c.lessons.length * 100 : 0}%"></span></div></div>
+    ${lessonRows(c, l.id)}
+  </div>`;
+}
+function vMine() {
+  if (!me()) return `<div class="stack"><h1>Mis cursos</h1><p class="note plain">Entra con tu nombre y correo en <a href="#/profile">Perfil</a> para ver tus cursos.</p></div>`;
+  const mine = S.courses.filter(c => hasAccess(c.id));
+  const pend = S.requests.filter(r => r.email === me() && r.status === 'pendiente');
+  return `<div class="stack">
+    <h1>Mis cursos</h1>
+    ${pend.map(r => `<p class="note warn">Pago en revisión: <b>${esc(course(r.courseId)?.title || '')}</b></p>`).join('')}
+    ${mine.length ? mine.map(c => { const n = c.lessons.filter(l => done(l.id)).length; return `
+      <a class="card" href="#/course/${c.id}"><div class="card-body">
+        <h3>${esc(c.title)}</h3>
+        <div class="progress"><span style="width:${c.lessons.length ? n / c.lessons.length * 100 : 0}%"></span></div>
+        <div class="meta"><span>${n} de ${c.lessons.length} lecciones vistas</span></div>
+      </div></a>`; }).join('') : `<p class="note plain">Aún no tienes cursos activos. <a href="#/home">Mira el catálogo</a>.</p>`}
+  </div>`;
+}
+let installEvt = null;
+const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+function vProfile() {
+  const st = S.settings;
+  const install = standalone ? '' : `<div class="panel"><h3>Instala la app</h3>
+    ${installEvt ? `<p class="muted small">Agrégala a tu pantalla de inicio y ábrela como cualquier app.</p><button class="btn primary" data-act="install">Instalar Raciel Chirino Academy</button>`
+      : isIOS ? `<p class="muted small">En iPhone: toca el botón Compartir de Safari y luego <b>Agregar a pantalla de inicio</b>.</p>`
+      : `<p class="muted small">En Android: abre el menú de Chrome (⋮) y toca <b>Instalar app</b> o <b>Agregar a pantalla principal</b>.</p>`}</div>`;
+  return `<div class="stack">
+    <h1>Perfil</h1>
+    ${me() ? `<div class="panel"><p class="eyebrow">Sesión</p><h3>${esc(S.user.name)}</h3><p class="muted">${esc(S.user.email)}</p><div><button class="btn sm" data-act="logout">Cerrar sesión</button></div></div>`
+    : `<form class="panel" id="userForm"><h3>Entra a tu cuenta</h3><p class="muted small">Usa el mismo correo con el que pagaste tu curso.</p>
+        <label class="f">Nombre<input class="in" id="uName" required autocomplete="name"></label>
+        <label class="f">Correo<input class="in" id="uEmail" type="email" required autocomplete="email"></label>
+        <button class="btn primary">Entrar</button></form>`}
+    ${install}
+    <div class="panel"><h3>Contacto</h3>
+      ${st.email ? `<p>Correo: <b style="user-select:all">${esc(st.email)}</b></p>` : ''}
+      ${st.whatsapp ? `<p>WhatsApp: <b style="user-select:all">${esc(st.whatsapp)}</b></p>` : ''}
+    </div>
+    <a class="btn" href="#/admin">Panel de administradora</a>
+  </div>`;
+}
+
+/* ---------- Admin ---------- */
+let admin = false, adminTab = 'req';
+function vPin() {
+  return `<form class="panel" id="pinForm" style="max-width:420px;margin:0 auto">
+    <p class="eyebrow">Solo para Raciel</p><h2>Panel de administradora</h2>
+    <label class="f">PIN<input class="in" id="pin" type="password" inputmode="numeric" autocomplete="off" required></label>
+    ${S.settings.pin === '1234' ? '<p class="small muted">El PIN inicial es 1234. Cámbialo en Ajustes al entrar.</p>' : ''}
+    <button class="btn dark">Entrar</button></form>`;
+}
+function vAdmin() {
+  const pend = S.requests.filter(r => r.status === 'pendiente').length;
+  let body;
+  if (adminTab === 'req') {
+    const reqs = [...S.requests].sort((a, b) => (a.status === 'pendiente' ? 0 : 1) - (b.status === 'pendiente' ? 0 : 1) || b.date - a.date);
+    body = reqs.length ? reqs.map(r => `
+      <div class="req">
+        <button class="thumb" data-act="viewCap" data-id="${r.id}" aria-label="Ver comprobante"><img data-cap="${r.id}" alt=""></button>
+        <div class="info">
+          <span class="chip ${r.status === 'pendiente' ? 'warn' : r.status === 'aprobado' ? 'ok' : 'bad'}">${r.status === 'pendiente' ? 'Por revisar' : r.status === 'aprobado' ? 'Aprobado' : 'Rechazado'}</span>
+          <b>${esc(r.name)}</b><span>${esc(r.email)}</span>
+          <span>${esc(course(r.courseId)?.title || 'Curso eliminado')} · $${esc(r.amount)} · ${fecha(r.date)}</span>
+          ${r.ref ? `<span>Referencia: ${esc(r.ref)}</span>` : ''}
+          ${r.status === 'pendiente' ? `<div class="row" style="margin-top:4px"><button class="btn sm primary" data-act="approve" data-id="${r.id}">${ic.check} Activar curso</button><button class="btn sm danger" data-act="reject" data-id="${r.id}">Rechazar</button></div>` : ''}
+        </div>
+      </div>`).join('') : '<p class="note plain">Aquí aparecerán los comprobantes que envíen tus alumnos. Revisa el capture, confirma el pago en tu banco y toca Activar curso.</p>';
+  } else if (adminTab === 'courses') {
+    body = `${S.courses.map(c => `
+      <div class="crow">
+        <span class="dot" style="background:var(--clip-${c.hue || 1})"></span>
+        <div class="t"><b>${esc(c.title)}</b><span>${c.lessons.length} lecciones · $${esc(c.price)} · ${c.lessons.filter(l => l.src).length} videos subidos</span></div>
+        <label class="switch" title="${c.active ? 'Visible' : 'Oculto'}"><input type="checkbox" data-toggle="${c.id}" ${c.active ? 'checked' : ''} aria-label="Curso visible: ${esc(c.title)}"><span></span></label>
+        <a class="btn sm" href="#/edit/${c.id}">Editar</a>
+      </div>`).join('')}
+      <button class="btn dark" data-act="newCourse">Nuevo curso</button>
+      <p class="small muted">El interruptor muestra u oculta el curso en el catálogo. Quien ya pagó conserva su acceso.</p>`;
+  } else {
+    const st = S.settings;
+    body = `<form class="panel" id="setForm">
+      <label class="f">Datos para pagar<small>Lo que ve el alumno al inscribirse: banco, Pago Móvil, Zelle, titular.</small><textarea class="in" id="sBank">${esc(st.bank)}</textarea></label>
+      <div class="grid2">
+        <label class="f">WhatsApp<input class="in" id="sWa" value="${esc(st.whatsapp)}" placeholder="+58 414 000 0000"></label>
+        <label class="f">Correo de la academia<input class="in" id="sEmail" type="email" value="${esc(st.email)}"></label>
+      </div>
+      <label class="f">Nuevo PIN<small>Déjalo vacío para mantener el actual.</small><input class="in" id="sPin" inputmode="numeric" minlength="4" autocomplete="off"></label>
+      <button class="btn primary">Guardar ajustes</button></form>
+      <button class="btn" data-act="adminOut">Salir del panel</button>`;
+  }
+  return `<div class="stack">
+    <div class="stack" style="gap:6px"><p class="eyebrow">Administradora</p><h1>Hola, Raciel</h1></div>
+    <div class="seg" role="tablist">
+      <button class="${adminTab === 'req' ? 'on' : ''}" data-act="tab" data-t="req">Pagos${pend ? `<span class="badge">${pend}</span>` : ''}</button>
+      <button class="${adminTab === 'courses' ? 'on' : ''}" data-act="tab" data-t="courses">Cursos</button>
+      <button class="${adminTab === 'set' ? 'on' : ''}" data-act="tab" data-t="set">Ajustes</button>
+    </div>
+    ${body}
+  </div>`;
+}
+function vEdit(id) {
+  const c = course(id);
+  if (!c) return `<p class="note plain">Curso no encontrado.</p>`;
+  return `<div class="stack">
+    ${cover(c, true)}
+    <form class="panel" id="courseForm" data-id="${c.id}">
+      <label class="f">Nombre del curso<input class="in" id="cTitle" value="${esc(c.title)}" required></label>
+      <label class="f">Descripción corta<textarea class="in" id="cTag" style="min-height:90px">${esc(c.tagline)}</textarea></label>
+      <div class="grid2">
+        <label class="f">Precio (USD)<input class="in" id="cPrice" type="number" min="0" step="1" value="${esc(c.price)}" required></label>
+        <label class="f">Nivel<select class="in" id="cLevel">${['Principiante', 'Intermedio', 'Avanzado'].map(v => `<option ${v === c.level ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
+      </div>
+      <div class="grid2">
+        <label class="f">Palabra de portada<input class="in" id="cShort" value="${esc(c.short || '')}" maxlength="10"></label>
+        <div class="f" style="display:flex;flex-direction:column;gap:6px;font-size:.88rem;font-weight:600">Color
+          <div class="hues">${[1, 2, 3].map(h => `<label><input type="radio" name="hue" value="${h}" ${(c.hue || 1) == h ? 'checked' : ''} aria-label="Color ${h}"><i style="background:var(--clip-${h})"></i></label>`).join('')}</div></div>
+      </div>
+      <button class="btn primary">Guardar curso</button>
+    </form>
+
+    <h2>Lecciones</h2>
+    ${c.lessons.length ? `<ol class="lessons">${c.lessons.map((l, i) => `<li class="elesson">
+      <span class="n" style="font:500 .8rem var(--f-mono);color:var(--muted)">${String(i + 1).padStart(2, '0')}</span>
+      <span class="t"><b>${esc(l.title)}</b><span>${esc(l.dur || '--:--')} · ${l.src ? (l.src.type === 'file' ? 'Video subido' : 'Enlace de video') : 'Falta el video'}</span></span>
+      <span class="row" style="gap:6px">
+        <button class="btn sm" data-act="moveL" data-c="${c.id}" data-l="${l.id}" ${i === 0 ? 'disabled' : ''} aria-label="Subir">↑</button>
+        <button class="btn sm danger" data-act="delL" data-c="${c.id}" data-l="${l.id}">Quitar</button>
+      </span></li>`).join('')}</ol>` : '<p class="note plain">Este curso aún no tiene lecciones.</p>'}
+
+    <form class="panel" id="lessonForm" data-id="${c.id}">
+      <h3>Agregar lección</h3>
+      <label class="f">Título<input class="in" id="lTitle" required></label>
+      <label class="f">Video desde tu teléfono<small>Se guarda en este dispositivo.</small><input class="in" id="lFile" type="file" accept="video/*"></label>
+      <label class="f">o enlace del video<small>Un enlace .mp4 se reproduce aquí; YouTube o Drive se abren aparte.</small><input class="in" id="lUrl" type="url" placeholder="https://"></label>
+      <label class="f">Duración<small>Se calcula sola si subes el video.</small><input class="in" id="lDur" placeholder="08:30" pattern="\\d{1,2}:\\d{2}(:\\d{2})?"></label>
+      <button class="btn dark" id="lBtn">Agregar lección</button>
+    </form>
+    <button class="btn danger" data-act="delCourse" data-id="${c.id}">Eliminar curso</button>
+  </div>`;
+}
+
+/* ============ Hoja de pago ============ */
+let capFile = null;
+function openSheet(html) { $('#sheetIn').innerHTML = html; $('#sheet').hidden = false; }
+function closeSheet() { $('#sheet').hidden = true; $('#sheetIn').innerHTML = ''; capFile = null; }
+function buySheet(c) {
+  openSheet(`<div class="sheet-head"><h2>Inscripción</h2><button class="x" data-act="close" aria-label="Cerrar">${ic.x}</button></div>
+    <div class="row" style="justify-content:space-between"><b>${esc(c.title)}</b><span class="price">$${esc(c.price)}</span></div>
+    <form id="payForm" class="stack" style="gap:14px" data-id="${c.id}">
+      ${me() ? '' : `<div class="grid2"><label class="f">Tu nombre<input class="in" id="pName" required autocomplete="name"></label><label class="f">Tu correo<input class="in" id="pEmail" type="email" required autocomplete="email"></label></div>`}
+      <div class="stack" style="gap:8px"><b>1. Paga $${esc(c.price)} a estos datos</b>
+        <pre class="bank" id="bankTxt">${esc(S.settings.bank)}</pre>
+        <button type="button" class="btn sm" data-act="copyBank" style="align-self:flex-start">Copiar datos</button></div>
+      <div class="stack" style="gap:8px"><b>2. Sube el capture del pago</b>
+        <label class="drop" for="capIn" id="capDrop"><span>Toca para elegir la imagen</span><span class="small">JPG o PNG</span></label>
+        <input class="sr" type="file" id="capIn" accept="image/*" required></div>
+      <label class="f">Número de referencia <small>Opcional</small><input class="in" id="pRef" inputmode="numeric"></label>
+      <button class="btn primary" id="paySend">Enviar comprobante</button>
+    </form>`);
+}
+async function shrink(file) {
+  try {
+    const img = await createImageBitmap(file); const k = Math.min(1, 1400 / Math.max(img.width, img.height));
+    const cv = document.createElement('canvas'); cv.width = img.width * k; cv.height = img.height * k;
+    cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+    return await new Promise(r => cv.toBlob(b => r(b || file), 'image/jpeg', .85));
+  } catch (e) { return file; }
+}
+
+/* ============ Render y navegación ============ */
+let lastRoute = '', blobURLs = [];
+function go(r) { location.hash = '/' + r; }
+function render() {
+  blobURLs.forEach(u => URL.revokeObjectURL(u)); blobURLs = [];
+  const route = location.hash.replace(/^#\/?/, '') || 'home';
+  const [v, a, b] = route.split('/');
+  let html;
+  if (v === 'course') html = vCourse(a);
+  else if (v === 'lesson') html = vLesson(a, b);
+  else if (v === 'mine') html = vMine();
+  else if (v === 'profile') html = vProfile();
+  else if (v === 'admin') html = admin ? vAdmin() : vPin();
+  else if (v === 'edit') html = admin ? vEdit(a) : vPin();
+  else html = vHome();
+  $('#view').innerHTML = html;
+  const tab = { course: 'home', lesson: 'mine', admin: 'profile', edit: 'profile' }[v] || v || 'home';
+  document.querySelectorAll('.tabs a').forEach(t => t.classList.toggle('on', t.dataset.tab === tab));
+  $('#back').hidden = ['home', 'mine', 'profile', ''].includes(v);
+  if (route !== lastRoute) { scrollTo(0, 0); lastRoute = route; }
+  after();
+}
+async function after() {
+  const p = $('#player');
+  if (p) {
+    const [, cid] = location.hash.replace(/^#\/?/, '').split('/');
+    const l = course(cid)?.lessons.find(x => x.id === p.dataset.lid);
+    let src = null;
+    if (l?.src?.type === 'file') { try { const b = await idb.get('vid_' + l.id); if (b) { src = URL.createObjectURL(b); blobURLs.push(src); } } catch (e) {} }
+    else if (l?.src?.type === 'url') {
+      if (/\.(mp4|webm|m4v|mov)(\?|$)/i.test(l.src.url)) src = l.src.url;
+      else { p.innerHTML = `<div class="empty">Este video se abre en otra pestaña.<a href="${esc(l.src.url)}" target="_blank" rel="noopener">Ver la lección</a></div>`; return; }
+    }
+    p.innerHTML = src ? `<video controls playsinline preload="metadata" src="${esc(src)}" controlslist="nodownload"></video>`
+      : `<div class="empty">El video de esta lección todavía no se ha subido.</div>`;
+    const vid = p.querySelector('video');
+    if (vid) vid.addEventListener('ended', () => markDone(cid, l.id, true));
+  }
+  for (const im of document.querySelectorAll('img[data-cap]')) {
+    try { const b = await idb.get('cap_' + im.dataset.cap); if (b) { const u = URL.createObjectURL(b); blobURLs.push(u); im.src = u; } } catch (e) {}
+  }
+}
+function markDone(cid, lid, quiet) {
+  if (!me()) return;
+  const pr = S.progress[me()] = S.progress[me()] || {};
+  if (pr[lid] && !quiet) delete pr[lid]; else pr[lid] = true;
+  save(); render(); if (quiet) toast('Lección completada');
+}
+
+/* ============ Eventos ============ */
+let armed = null;
+document.addEventListener('click', async e => {
+  const t = e.target.closest('[data-act]');
+  if (e.target.id === 'sheet') return closeSheet();
+  if (!t) return;
+  const a = t.dataset.act;
+  if (a === 'buy') buySheet(course(t.dataset.id));
+  else if (a === 'close') closeSheet();
+  else if (a === 'copyBank') {
+    try { await navigator.clipboard.writeText(S.settings.bank); toast('Datos copiados'); }
+    catch (err) { const r = document.createRange(); r.selectNodeContents($('#bankTxt')); getSelection().removeAllRanges(); getSelection().addRange(r); toast('Datos seleccionados, cópialos'); }
+  }
+  else if (a === 'markDone') markDone(t.dataset.c, t.dataset.l);
+  else if (a === 'logout') { S.user = null; save(); render(); toast('Sesión cerrada'); }
+  else if (a === 'install' && installEvt) { installEvt.prompt(); await installEvt.userChoice; installEvt = null; render(); }
+  else if (a === 'tab') { adminTab = t.dataset.t; render(); }
+  else if (a === 'adminOut') { admin = false; go('profile'); }
+  else if (a === 'approve' || a === 'reject') {
+    const r = S.requests.find(x => x.id === t.dataset.id); if (!r) return;
+    r.status = a === 'approve' ? 'aprobado' : 'rechazado';
+    if (a === 'approve') { const list = S.enroll[r.email] = S.enroll[r.email] || []; if (!list.includes(r.courseId)) list.push(r.courseId); }
+    save(); render(); toast(a === 'approve' ? `Curso activado para ${r.name}` : 'Comprobante rechazado');
+  }
+  else if (a === 'viewCap') {
+    let u = ''; try { const b = await idb.get('cap_' + t.dataset.id); if (b) { u = URL.createObjectURL(b); blobURLs.push(u); } } catch (err) {}
+    openSheet(`<div class="sheet-head"><h2>Comprobante</h2><button class="x" data-act="close" aria-label="Cerrar">${ic.x}</button></div>${u ? `<img src="${u}" alt="Capture del pago" style="border-radius:12px;width:100%">` : '<p class="note plain">No hay imagen guardada.</p>'}`);
+  }
+  else if (a === 'newCourse') {
+    const c = { id: uid(), title: 'Curso nuevo', short: 'Nuevo', hue: 1, price: 20, level: 'Principiante', active: false, tagline: '', lessons: [] };
+    S.courses.push(c); save(); go('edit/' + c.id);
+  }
+  else if (a === 'delCourse' || a === 'delL') {
+    const key = a + (t.dataset.id || t.dataset.l);
+    if (armed !== key) { armed = key; t.classList.add('armed'); t.textContent = 'Toca otra vez para confirmar'; setTimeout(() => { if (armed === key) { armed = null; render(); } }, 3000); return; }
+    armed = null;
+    if (a === 'delCourse') { const c = course(t.dataset.id); c.lessons.forEach(l => idb.del('vid_' + l.id).catch(() => {})); S.courses = S.courses.filter(x => x.id !== c.id); save(); toast('Curso eliminado'); go('admin'); }
+    else { const c = course(t.dataset.c); c.lessons = c.lessons.filter(l => l.id !== t.dataset.l); idb.del('vid_' + t.dataset.l).catch(() => {}); save(); render(); toast('Lección quitada'); }
+  }
+  else if (a === 'moveL') {
+    const c = course(t.dataset.c), i = c.lessons.findIndex(l => l.id === t.dataset.l);
+    if (i > 0) { [c.lessons[i - 1], c.lessons[i]] = [c.lessons[i], c.lessons[i - 1]]; save(); render(); }
+  }
+});
+document.addEventListener('change', async e => {
+  const el = e.target;
+  if (el.dataset.toggle) { const c = course(el.dataset.toggle); c.active = el.checked; save(); render(); toast(c.active ? 'Curso visible en el catálogo' : 'Curso oculto'); }
+  if (el.id === 'capIn' && el.files[0]) {
+    capFile = el.files[0];
+    const u = URL.createObjectURL(capFile); blobURLs.push(u);
+    $('#capDrop').innerHTML = `<img src="${u}" alt="Vista previa del capture"><span class="small">Toca para cambiarla</span>`;
+  }
+  if (el.id === 'lFile' && el.files[0]) {
+    const v = document.createElement('video'); v.preload = 'metadata';
+    v.onloadedmetadata = () => { if (isFinite(v.duration)) $('#lDur').value = mmss(v.duration); URL.revokeObjectURL(v.src); };
+    v.src = URL.createObjectURL(el.files[0]);
+    if (!$('#lTitle').value) $('#lTitle').value = el.files[0].name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ');
+  }
+});
+document.addEventListener('submit', async e => {
+  e.preventDefault();
+  const f = e.target;
+  if (f.id === 'userForm') { S.user = { name: $('#uName').value.trim(), email: $('#uEmail').value.trim().toLowerCase() }; save(); render(); toast('Bienvenida/o, ' + S.user.name.split(' ')[0]); }
+  else if (f.id === 'pinForm') { if ($('#pin').value === S.settings.pin) { admin = true; adminTab = 'req'; render(); } else { toast('PIN incorrecto'); $('#pin').value = ''; } }
+  else if (f.id === 'payForm') {
+    if (!capFile) return toast('Sube el capture del pago');
+    if (!me()) S.user = { name: $('#pName').value.trim(), email: $('#pEmail').value.trim().toLowerCase() };
+    const c = course(f.dataset.id); const btn = $('#paySend'); btn.disabled = true; btn.textContent = 'Enviando…';
+    const r = { id: uid(), email: me(), name: S.user.name, courseId: c.id, amount: c.price, ref: $('#pRef').value.trim(), status: 'pendiente', date: Date.now() };
+    try { await idb.put('cap_' + r.id, await shrink(capFile)); } catch (err) { btn.disabled = false; btn.textContent = 'Enviar comprobante'; return toast('No se pudo guardar la imagen. Intenta con otra.'); }
+    S.requests.push(r); save(); closeSheet(); render(); toast('Comprobante enviado');
+  }
+  else if (f.id === 'setForm') {
+    const st = S.settings; st.bank = $('#sBank').value; st.whatsapp = $('#sWa').value.trim(); st.email = $('#sEmail').value.trim();
+    const np = $('#sPin').value.trim(); if (np) { if (np.length < 4) return toast('El PIN debe tener al menos 4 dígitos'); st.pin = np; }
+    save(); render(); toast('Ajustes guardados');
+  }
+  else if (f.id === 'courseForm') {
+    const c = course(f.dataset.id);
+    Object.assign(c, { title: $('#cTitle').value.trim(), tagline: $('#cTag').value.trim(), price: +$('#cPrice').value || 0, level: $('#cLevel').value, short: $('#cShort').value.trim(), hue: +(f.querySelector('[name=hue]:checked')?.value || 1) });
+    save(); render(); toast('Curso guardado');
+  }
+  else if (f.id === 'lessonForm') {
+    const c = course(f.dataset.id); const file = $('#lFile').files[0]; const url = $('#lUrl').value.trim();
+    const l = { id: uid(), title: $('#lTitle').value.trim(), dur: $('#lDur').value.trim(), src: null };
+    const btn = $('#lBtn'); btn.disabled = true; btn.textContent = 'Guardando video…';
+    if (file) { try { await idb.put('vid_' + l.id, file); l.src = { type: 'file' }; } catch (err) { btn.disabled = false; btn.textContent = 'Agregar lección'; return toast('El video es muy pesado para este dispositivo. Usa un enlace.'); } }
+    else if (url) l.src = { type: 'url', url };
+    c.lessons.push(l); save(); render(); toast('Lección agregada');
+  }
+});
+$('#back').addEventListener('click', () => history.length > 1 ? history.back() : go('home'));
+addEventListener('hashchange', render);
+addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; if (location.hash.includes('profile')) render(); });
+addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#sheet').hidden) closeSheet(); });
+if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) navigator.serviceWorker.register('sw.js').catch(() => {});
+render();
+</script>
+</body>
+</html>
