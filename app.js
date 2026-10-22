@@ -97,6 +97,7 @@ const ic = {
   check: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>',
   x: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
   google: '<svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>',
+  wa: '<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2c-1.5 0-3-.4-4.3-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1-.7-.3-1.4-.7-2-1.3-.5-.5-1-1.1-1.3-1.7-.1-.2 0-.4.1-.5l.4-.5.2-.4v-.4l-.8-1.9c-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.5.1-.7.3-.6.6-.9 1.4-.9 2.2.1 1 .4 1.9 1 2.7 1.1 1.6 2.5 2.9 4.3 3.7.5.2.9.4 1.4.5.5.2 1 .2 1.5.1.6-.1 1.1-.5 1.5-1 .2-.4.2-.8.2-1.2l-.4-.2z"/></svg>',
   chev: '<svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>'
 };
 function coverEl(c, cls = '') {
@@ -104,6 +105,14 @@ function coverEl(c, cls = '') {
   return `<div class="img ${cls}"><div class="ph" style="--b:${bandColor(c.band)}"><span class="k">${esc(c.kicker || c.title)}</span>${c.sub ? `<span class="s">${esc(c.sub)}</span>` : ''}</div>${u ? `<img src="${esc(u)}" alt="" loading="lazy" onerror="this.remove()">` : ''}</div>`;
 }
 const busy = (btn, txt) => { if (!btn) return () => {}; const o = btn.innerHTML; btn.disabled = true; btn.textContent = txt; return () => { btn.disabled = false; btn.innerHTML = o; }; };
+
+const waLink = () => {
+  let n = String(S.settings.whatsapp || '').replace(/\D/g, '');
+  if (!n) return '';
+  if (n.startsWith('0')) n = '58' + n.slice(1);           // 0414... → 58414...
+  else if (n.length === 10 && n.startsWith('4')) n = '58' + n; // 414... → 58414...
+  return `https://wa.me/${n}?text=${encodeURIComponent('Hola Raciel, vengo de la academia y tengo una pregunta.')}`;
+};
 
 /* ============ Vistas: alumno ============ */
 function vSetup() {
@@ -212,10 +221,10 @@ function vProfile() {
   return `<section class="hello"><h1>Perfil</h1></section>
     ${me() ? `<div class="row" style="gap:16px"><span class="avatar">${esc((S.user.name.trim()[0] || '?').toUpperCase())}</span><div style="min-width:0"><h2 style="font-size:1.25rem">${esc(S.user.name)}</h2><p class="muted" style="overflow-wrap:anywhere">${esc(S.user.email)}</p></div></div>` : auth}
     ${install}
+    ${waLink() ? `<a class="btn block wa" href="${waLink()}" target="_blank" rel="noopener">${ic.wa}Escríbeme por WhatsApp</a>`
+      : isAdmin() ? '<p class="note plain small">Agrega tu número de WhatsApp en Panel de administradora → Ajustes para mostrar el botón de contacto.</p>' : ''}
     <div class="menu">
       ${me() ? `<a href="#/mine">Mis Cursos${ic.chev}</a>` : ''}
-      ${st.whatsapp ? `<div style="padding:16px">WhatsApp: <b style="user-select:all;font-weight:500">${esc(st.whatsapp)}</b></div>` : ''}
-      ${st.email ? `<div style="padding:16px;overflow-wrap:anywhere">Correo: <b style="user-select:all;font-weight:500">${esc(st.email)}</b></div>` : ''}
       ${isAdmin() ? `<a href="#/admin">Panel de administradora${ic.chev}</a>` : ''}
       <a href="privacidad.html">Política de Privacidad${ic.chev}</a>
       <a href="terminos.html">Condiciones del Servicio${ic.chev}</a>
