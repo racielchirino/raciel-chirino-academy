@@ -13,6 +13,7 @@ self.addEventListener('fetch', e => {
   const url = new URL(req.url);
   if (url.origin !== location.origin) return;           // Supabase, Google, videos y fuentes: directo a internet
   if (url.pathname.endsWith('/version.json')) return;   // el aviso de versión nunca se guarda
+  if (url.pathname.startsWith('/api/')) return;         // la tasa del BCV siempre en vivo
   e.respondWith(
     fetch(req, { cache: 'no-store' })
       .then(r => { if (r.ok) { const copy = r.clone(); caches.open(CACHE).then(c => c.put(req.mode === 'navigate' ? './' : req, copy)); } return r; })

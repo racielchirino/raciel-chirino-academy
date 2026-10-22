@@ -190,3 +190,14 @@ language sql stable security definer set search_path = public as $$
 $$;
 revoke execute on function public.lesson_video(uuid) from public, anon;
 grant execute on function public.lesson_video(uuid) to authenticated;
+
+-- ---------- Tasa del BCV (paso 3) ----------
+create table if not exists public.tasas (
+  fecha date primary key,
+  usd numeric not null check (usd > 0),
+  fuente text,
+  created_at timestamptz not null default now()
+);
+alter table public.tasas enable row level security;
+drop policy if exists "tasas: leer" on public.tasas;
+create policy "tasas: leer" on public.tasas for select using (true);

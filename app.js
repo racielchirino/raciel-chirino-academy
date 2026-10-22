@@ -362,6 +362,12 @@ function buySheet(c) {
   openSheet(`${sheetHead('Inscripción')}
     <div class="row" style="justify-content:space-between"><b style="font-weight:500">${esc(c.title)}</b><b style="font-size:1.2rem">$${esc(c.price)}</b></div>
     <form id="payForm" class="courses" style="gap:16px" data-id="${c.id}">
+      <div class="bcv" id="bcvBox" data-price="${esc(c.price)}">
+        <div class="bcv-top"><img src="images/bcv.png" alt="" width="34" height="34"><span>Tasa Banco Central de Venezuela</span></div>
+        <div class="bcv-rate"><span class="usd">$1</span><span class="eq">=</span><b id="bcvRate">Buscando la tasa…</b></div>
+        <div class="bcv-total" id="bcvTotal" hidden></div>
+        <small id="bcvDate"></small>
+      </div>
       <div class="courses" style="gap:8px"><b style="font-weight:500">1. Paga $${esc(c.price)} a estos datos</b>
         <pre class="bank" id="bankTxt">${esc(S.settings.bank)}</pre>
         <button type="button" class="btn sm" data-act="copyBank" style="align-self:flex-start">Copiar datos</button></div>
@@ -371,6 +377,29 @@ function buySheet(c) {
       <label class="f">Número de referencia <small>Opcional</small><input class="in" id="pRef" inputmode="numeric"></label>
       <button class="btn primary" id="paySend">Enviar comprobante</button>
     </form>`);
+  loadTasa();
+}
+const fmtBs = n => n.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+async function loadTasa() {
+  const box = $('#bcvBox'); if (!box) return;
+  const price = Number(box.dataset.price) || 0;
+  try {
+    const r = await fetch('/api/tasa', { cache: 'no-store' });
+    const d = await r.json();
+    if (!r.ok || !(d.usd > 0)) throw new Error(d.error || 'sin tasa');
+    if (!document.body.contains(box)) return;
+    $('#bcvRate').textContent = `Bs. ${fmtBs(d.usd)}`;
+    const dia = new Date((d.vigente || d.fecha) + 'T12:00:00').toLocaleDateString('es-VE', { weekday: 'long', day: 'numeric', month: 'long' });
+    $('#bcvDate').textContent = `Esta tasa vale por hoy, ${dia}, hasta las 11:59 p. m.`;
+    clearTimeout(window._tasaT);
+    if (d.vence) { const ms = new Date(d.vence).getTime() - Date.now() + 2000; if (ms > 0 && ms < 864e5) window._tasaT = setTimeout(loadTasa, ms); }
+    const t = $('#bcvTotal'); t.hidden = false;
+    t.innerHTML = `<span>Si pagas en bolívares, tu curso te sale en</span><b>Bs. ${fmtBs(price * d.usd)}</b>`;
+  } catch (e) {
+    if (!document.body.contains(box)) return;
+    $('#bcvRate').textContent = 'Uy, no cargó';
+    $('#bcvDate').innerHTML = 'No pudimos traer la tasa ahorita. Puedes verla en <a href="https://www.bcv.org.ve/" target="_blank" rel="noopener">bcv.org.ve</a> o escribirle a Raciel.';
+  }
 }
 function newPassSheet() {
   openSheet(`${sheetHead('Nueva contraseña')}<form id="newPassForm" class="courses" style="gap:14px">
