@@ -194,7 +194,7 @@ function vProfile() {
     ? `<form class="panel" id="forgotForm"><b style="font-weight:500;font-size:1.1rem">Recupera tu contraseña</b><p class="muted small">Te enviaremos un enlace a tu correo para crear una nueva.</p>
         <label class="f">Correo<input class="in" id="fEmail" type="email" required autocomplete="email"></label>
         <button class="btn primary">Enviar enlace</button><button type="button" class="btn" data-act="authMode" data-m="in">Volver</button></form>`
-    : `<button class="btn block gbtn" data-act="google">${ic.google}Continuar con Google</button>
+    : `<div id="gsi" class="gsi"><button class="btn block gbtn" data-act="google">${ic.google}Continuar con Google</button></div>
       <p class="small muted center" style="margin-top:-8px">Al continuar aceptas las <a href="terminos.html" style="color:var(--coral)">Condiciones del Servicio</a> y la <a href="privacidad.html" style="color:var(--coral)">Política de Privacidad</a>.</p>
       <div class="or"><span>o con tu correo</span></div>
       <div class="seg"><button class="${authMode === 'in' ? 'on' : ''}" data-act="authMode" data-m="in">Entrar</button><button class="${authMode === 'up' ? 'on' : ''}" data-act="authMode" data-m="up">Crear cuenta</button></div>
@@ -388,7 +388,37 @@ const embed = url => {
   if (m) return m[1].startsWith('customer-') ? `https://${m[1]}/${m[2]}/iframe` : `https://iframe.videodelivery.net/${m[2]}`;
   return null;
 };
+/* Botón oficial de Google: Google muestra racielchirinoacademy.com en vez de la dirección de Supabase */
+let gsiLoading = null;
+const loadGsi = () => gsiLoading || (gsiLoading = new Promise((res, rej) => {
+  if (window.google?.accounts?.id) return res();
+  const sc = document.createElement('script'); sc.src = 'https://accounts.google.com/gsi/client'; sc.async = true;
+  sc.onload = res; sc.onerror = () => { gsiLoading = null; rej(); }; document.head.appendChild(sc);
+}));
+async function sha256hex(t) { const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(t)); return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join(''); }
+async function mountGoogle() {
+  const box = $('#gsi');
+  if (!box || !CFG.googleClientId || !crypto.subtle) return;
+  try {
+    await loadGsi();
+    if (!document.body.contains(box)) return;
+    const nonce = newId() + newId();
+    google.accounts.id.initialize({
+      client_id: CFG.googleClientId, nonce: await sha256hex(nonce), ux_mode: 'popup', use_fedcm_for_prompt: true, context: 'signin', itp_support: true,
+      callback: async resp => {
+        try {
+          const { error } = await sb.auth.signInWithIdToken({ provider: 'google', token: resp.credential, nonce });
+          if (error) throw error;
+        } catch (err) { toast(friendly(err)); }
+      }
+    });
+    box.innerHTML = '';
+    google.accounts.id.renderButton(box, { type: 'standard', theme: 'outline', size: 'large', shape: 'pill', text: 'continue_with', logo_alignment: 'center', locale: 'es', width: Math.min(400, Math.max(240, box.clientWidth || 320)) });
+  } catch (e) { /* si Google no carga, queda el botón de respaldo */ }
+}
+
 async function after() {
+  mountGoogle();
   const sl = $('#slides'), dots = $('#dots');
   clearInterval(window._auto);
   if (sl && dots) {
