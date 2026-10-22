@@ -701,7 +701,30 @@ addEventListener('hashchange', render);
 addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; if (location.hash.includes('profile')) render(); });
 addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#sheet').hidden) closeSheet(); });
 addEventListener('online', refresh);
-if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) navigator.serviceWorker.register('sw.js').catch(() => {});
+/* ===== Siempre la versión más nueva ===== */
+if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+  navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(r => r.update()).catch(() => {});
+  let reloaded = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => { if (!reloaded) { reloaded = true; location.reload(); } });
+}
+let checkingVersion = false;
+async function checkVersion() {
+  if (checkingVersion || !navigator.onLine || !window.APP_VERSION) return;
+  checkingVersion = true;
+  try {
+    const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
+    const { v } = await r.json();
+    if (v && v !== window.APP_VERSION) {
+      const key = 'rca_reload_' + v;
+      let tried = false; try { tried = sessionStorage.getItem(key); sessionStorage.setItem(key, '1'); } catch (e) {}
+      if (!tried) { location.reload(); return; }
+    }
+  } catch (e) {}
+  checkingVersion = false;
+}
+addEventListener('hashchange', checkVersion);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkVersion(); });
+checkVersion();
 
 render();
 if (sb) {
