@@ -294,7 +294,9 @@ function vAdmin() {
           <b>${esc(r.name)}</b><span>${esc(r.email)}</span>
           <span>${esc(course(r.course_id)?.title || 'Curso eliminado')} · ${usd(r.amount)} · ${r.region === 'intl' ? '🌎 Internacional' : FLAG_VE + ' Venezuela'} · ${fecha(r.created_at)}</span>
           ${r.ref ? `<span>Referencia: ${esc(r.ref)}</span>` : ''}
-          ${r.status === 'pendiente' ? `<div class="row" style="margin-top:4px"><button class="btn sm primary" data-act="approve" data-id="${r.id}">${ic.check} Activar curso</button><button class="btn sm danger" data-act="reject" data-id="${r.id}">Rechazar</button></div>` : ''}
+          ${r.status === 'pendiente' ? `<div class="row" style="margin-top:4px"><button class="btn sm primary" data-act="approve" data-id="${r.id}">${ic.check} Activar curso</button><button class="btn sm danger" data-act="reject" data-id="${r.id}">Rechazar</button></div>`
+          : r.status === 'aprobado' ? `<div class="row" style="margin-top:4px"><button class="btn sm danger" data-act="revoke" data-id="${r.id}">Quitar acceso</button></div>`
+          : `<div class="row" style="margin-top:4px"><button class="btn sm" data-act="approve" data-id="${r.id}">Activar de nuevo</button></div>`}
         </div>
       </div>`).join('') : '<p class="note plain">Aquí aparecerán los comprobantes que envíen tus alumnos. Revisa el capture, confirma el pago en tu banco y toca Activar curso.</p>';
   } else if (adminTab === 'courses') {
@@ -608,6 +610,19 @@ document.addEventListener('click', async e => {
       const { error } = await sb.from('requests').update({ status: a === 'approve' ? 'aprobado' : 'rechazado' }).eq('id', r.id);
       if (error) { done_(); throw error; }
       await refresh(); toast(a === 'approve' ? `Curso activado para ${r.name}` : 'Comprobante rechazado');
+    }
+    else if (a === 'revoke') {
+      const r = S.allReqs.find(x => x.id === t.dataset.id); if (!r) return;
+      const key = 'revoke' + r.id;
+      if (armed !== key) { armed = key; t.classList.add('armed'); t.textContent = 'Toca otra vez para quitar el acceso'; setTimeout(() => { if (armed === key) { armed = null; render(); } }, 3500); return; }
+      armed = null;
+      const done_ = busy(t, 'Quitando…');
+      // ¿Tiene otro pago aprobado del mismo curso? Entonces solo se marca este pago, el acceso se mantiene
+      const otro = S.allReqs.some(x => x.id !== r.id && x.user_id === r.user_id && x.course_id === r.course_id && x.status === 'aprobado');
+      if (!otro) { const { error } = await sb.from('enrollments').delete().eq('user_id', r.user_id).eq('course_id', r.course_id); if (error) { done_(); throw error; } }
+      const { error } = await sb.from('requests').update({ status: 'rechazado' }).eq('id', r.id);
+      if (error) { done_(); throw error; }
+      await refresh(); toast(otro ? 'Pago marcado como rechazado. Tiene otro pago aprobado, conserva el acceso' : `Acceso quitado a ${r.name}`);
     }
     else if (a === 'viewCap') {
       const { data } = await sb.storage.from('captures').createSignedUrl(t.dataset.path, 3600);
