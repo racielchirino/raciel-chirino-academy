@@ -203,21 +203,12 @@ function vProfile() {
     ${installEvt ? `<p class="muted small">Agrégala a tu pantalla de inicio y ábrela como cualquier app.</p><button class="btn primary" data-act="install">Instalar</button>`
       : isIOS ? `<p class="muted small">En iPhone: toca Compartir en Safari y luego <b>Agregar a pantalla de inicio</b>.</p>`
       : `<p class="muted small">En Android: abre el menú de Chrome (⋮) y toca <b>Instalar app</b>.</p>`}</div>`;
-  const auth = authMode === 'forgot'
-    ? `<form class="panel" id="forgotForm"><b style="font-weight:500;font-size:1.1rem">Recupera tu contraseña</b><p class="muted small">Te enviaremos un enlace a tu correo para crear una nueva.</p>
-        <label class="f">Correo<input class="in" id="fEmail" type="email" required autocomplete="email"></label>
-        <button class="btn primary">Enviar enlace</button><button type="button" class="btn" data-act="authMode" data-m="in">Volver</button></form>`
-    : `<div id="gsi" class="gsi"><span class="btn block gbtn" aria-disabled="true" style="opacity:.6;cursor:wait">${ic.google}Cargando Google…</span></div>
-      <p class="small muted center" style="margin-top:-8px">Al continuar aceptas las <a href="terminos.html" style="color:var(--coral)">Condiciones del Servicio</a> y la <a href="privacidad.html" style="color:var(--coral)">Política de Privacidad</a>.</p>
-      <div class="or"><span>o con tu correo</span></div>
-      <div class="seg"><button class="${authMode === 'in' ? 'on' : ''}" data-act="authMode" data-m="in">Entrar</button><button class="${authMode === 'up' ? 'on' : ''}" data-act="authMode" data-m="up">Crear cuenta</button></div>
-      <form class="panel" id="authForm">
-        ${authMode === 'up' ? '<label class="f">Nombre y apellido<input class="in" id="aName" required autocomplete="name"></label>' : ''}
-        <label class="f">Correo<input class="in" id="aEmail" type="email" required autocomplete="email"></label>
-        <label class="f">Contraseña<input class="in" id="aPass" type="password" required minlength="6" autocomplete="${authMode === 'up' ? 'new-password' : 'current-password'}"></label>
-        <button class="btn primary" id="aBtn">${authMode === 'up' ? 'Crear cuenta' : 'Entrar'}</button>
-        ${authMode === 'in' ? '<button type="button" class="btn" style="border:0;color:var(--coral)" data-act="authMode" data-m="forgot">Olvidé mi contraseña</button>' : ''}
-      </form>`;
+  const auth = `<div class="panel" style="align-items:stretch;text-align:center">
+      <b style="font-weight:500;font-size:1.15rem">Entra a la academia</b>
+      <p class="muted small">Usa tu cuenta de Google. Si es tu primera vez, se crea tu cuenta automáticamente.</p>
+      <div id="gsi" class="gsi"><span class="btn block gbtn" aria-disabled="true" style="opacity:.6;cursor:wait">${ic.google}Cargando Google…</span></div>
+      <p class="small muted">Al continuar aceptas las <a href="terminos.html" style="color:var(--coral)">Condiciones del Servicio</a> y la <a href="privacidad.html" style="color:var(--coral)">Política de Privacidad</a>.</p>
+    </div>`;
   return `<section class="hello"><h1>Perfil</h1></section>
     ${me() ? `<div class="row" style="gap:16px"><span class="avatar">${esc((S.user.name.trim()[0] || '?').toUpperCase())}</span><div style="min-width:0"><h2 style="font-size:1.25rem">${esc(S.user.name)}</h2><p class="muted" style="overflow-wrap:anywhere">${esc(S.user.email)}</p></div></div>` : auth}
     ${install}
@@ -335,7 +326,7 @@ function openSheet(html) { $('#sheetIn').innerHTML = html; $('#sheet').hidden = 
 function closeSheet() { $('#sheet').hidden = true; $('#sheetIn').innerHTML = ''; capFile = null; }
 const sheetHead = t => `<div class="sheet-head"><h2>${t}</h2><button class="iconbtn" style="margin:0" data-act="close" aria-label="Cerrar">${ic.x}</button></div>`;
 function buySheet(c) {
-  if (!me()) { authMode = 'up'; go('profile'); return toast('Crea tu cuenta o entra para inscribirte'); }
+  if (!me()) { go('profile'); return toast('Entra con Google para inscribirte'); }
   openSheet(`${sheetHead('Inscripción')}
     <div class="row" style="justify-content:space-between"><b style="font-weight:500">${esc(c.title)}</b><b style="font-size:1.2rem">$${esc(c.price)}</b></div>
     <form id="payForm" class="courses" style="gap:16px" data-id="${c.id}">
