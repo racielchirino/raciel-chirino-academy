@@ -26,10 +26,28 @@ const bandColor = b => /^#[0-9a-f]{6}$/i.test(b || '') ? b : (LEGACY_BANDS[b] ||
 const bandText = b => { const h = bandColor(b).slice(1); const [r, g, bl] = [0, 2, 4].map(i => parseInt(h.substr(i, 2), 16) / 255).map(v => v <= .03928 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4); return (.2126 * r + .7152 * g + .0722 * bl) > .45 ? '#141A26' : '#FFFFFF'; };
 
 /* ============ Estado ============ */
-let S = { settings: { bank: '', whatsapp: '', email: '', banners: [] }, courses: [], enroll: [], reqs: [], done: {}, allReqs: [], user: null, offline: false, loaded: false };
+let S = { region: null, settings: { bank: '', bank_intl: '', whatsapp: '', email: '', banners: [] }, courses: [], enroll: [], reqs: [], done: {}, allReqs: [], user: null, offline: false, loaded: false };
 try { const c = JSON.parse(localStorage.getItem(CACHE_KEY)); if (c && c.courses) S = { ...S, ...c, allReqs: [], loaded: true }; } catch (e) {}
 
 const me = () => S.user && S.user.email;
+/* ===== Región: Venezuela o internacional ===== */
+const REGION_KEY = 'rca_region_v1', REGION_TEST_KEY = 'rca_region_test';
+const tzVE = () => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone === 'America/Caracas'; } catch (e) { return false; } };
+const isVE = () => (S.regionTest || S.region || (tzVE() ? 've' : 'intl')) === 've';
+// Sin precio internacional cargado → null: no se vende, se invita a escribir por WhatsApp
+const priceOf = c => isVE() ? Number(c.price) : (c.price_intl == null || c.price_intl === '' ? null : Number(c.price_intl));
+const priceTxt = c => priceOf(c) == null ? 'Consultar' : usd(priceOf(c));
+const usd = n => '$' + (Number.isInteger(+n) ? +n : (+n).toFixed(2));
+try { S.region = localStorage.getItem(REGION_KEY); S.regionTest = sessionStorage.getItem(REGION_TEST_KEY); } catch (e) {}
+async function detectRegion() {
+  try {
+    const r = await fetch('/api/pais', { cache: 'no-store' });
+    const { country } = await r.json();
+    if (!country || country === 'XX' || country === 'T1') return;   // desconocido o Tor: queda el respaldo por zona horaria
+    const reg = country === 'VE' ? 've' : 'intl';
+    if (reg !== S.region) { S.region = reg; try { localStorage.setItem(REGION_KEY, reg); } catch (e) {} render(); }
+  } catch (e) {}
+}
 const isAdmin = () => (me() || '').toLowerCase() === ADMIN;
 const course = id => S.courses.find(c => c.id === id);
 const hasAccess = cid => S.enroll.includes(cid) || isAdmin();
@@ -117,12 +135,12 @@ const myCard = c => { const p = pct(c); const next = c.lessons.find(l => !done(l
     <div class="t"><b>${esc(c.title)}</b><div class="slider" role="progressbar" aria-valuenow="${p}" aria-valuemin="0" aria-valuemax="100"><span style="width:${p}%"></span></div>
     <small>${leftLabel(c)} • ${c.lessons.length} lecciones</small></div></a>`; };
 
-const waLink = () => {
+const waLink = (msg = 'Hola Raciel, vengo de la academia y tengo una pregunta.') => {
   let n = String(S.settings.whatsapp || '').replace(/\D/g, '');
   if (!n) return '';
   if (n.startsWith('0')) n = '58' + n.slice(1);           // 0414... → 58414...
   else if (n.length === 10 && n.startsWith('4')) n = '58' + n; // 414... → 58414...
-  return `https://wa.me/${n}?text=${encodeURIComponent('Hola Raciel, vengo de la academia y tengo una pregunta.')}`;
+  return `https://wa.me/${n}?text=${encodeURIComponent(msg)}`;
 };
 
 /* ============ Vistas: alumno ============ */
@@ -155,7 +173,7 @@ function vHome() {
       ${list.length ? `<div class="grid">${list.map(c => `
         <a class="tile" style="${bstyle(c)}" href="#/course/${c.id}">${statusChip(c)}${icoEl(c)}
           <div class="b"><h3>${esc(c.title)}</h3>
-            <div class="meta"><span>${c.lessons.length} lecciones</span><span class="price">$${esc(c.price)}</span></div></div>
+            <div class="meta"><span>${c.lessons.length} lecciones</span><span class="price">${priceTxt(c)}</span></div></div>
         </a>`).join('')}</div>` : `<p class="note plain">${S.loaded ? 'Pronto habrá cursos disponibles.' : 'Cargando cursos…'}</p>`}
     </section>`;
 }
@@ -184,12 +202,14 @@ function vCourse(id) {
   else if (r && r.status === 'pendiente') note = `<p class="note warn"><b>Recibimos tu comprobante.</b> Raciel lo está revisando y activará tu curso en cuanto confirme el pago.</p>`;
   else {
     if (r && r.status === 'rechazado') note = `<p class="note bad">Tu último comprobante no se pudo confirmar. Revisa los datos del pago y envíalo de nuevo.</p>`;
-    cta = `<button class="btn primary" data-act="buy" data-id="${c.id}">Inscribirme por $${esc(c.price)}</button>`;
+    cta = priceOf(c) != null ? `<button class="btn primary" data-act="buy" data-id="${c.id}">Inscribirme por ${usd(priceOf(c))}</button>`
+      : waLink() ? `<a class="btn wa" href="${waLink(`Hola Raciel, quiero inscribirme en "${c.title}" desde fuera de Venezuela. ¿Cuál es el precio?`)}" target="_blank" rel="noopener">${ic.wa}Consultar por WhatsApp</a>` : '';
+    if (priceOf(c) == null && !acc) note += `<p class="note plain">Para inscribirte desde fuera de Venezuela, escríbele a Raciel y te dará el precio y los datos de pago.</p>`;
   }
   const cover = mediaURL(c.cover_path);
   return `<section class="chero" style="${bstyle(c)}">
       <div class="head">${icoEl(c)}<div style="min-width:0"><h1>${esc(c.title)}</h1><p class="by">por Raciel Chirino</p></div></div>
-      <div class="meta"><span>${esc(c.level)}</span><span>${ic.play} ${human(total(c))}</span><span>${c.lessons.length} lecciones</span>${acc ? '' : `<span>$${esc(c.price)}</span>`}</div>
+      <div class="meta"><span>${esc(c.level)}</span><span>${ic.play} ${human(total(c))}</span><span>${c.lessons.length} lecciones</span>${acc ? '' : `<span>${priceTxt(c)}</span>`}</div>
     </section>
     ${note}
     <section class="about">
@@ -248,10 +268,12 @@ function vProfile() {
       : isAdmin() ? '<p class="note plain small">Agrega tu número de WhatsApp en Panel de administradora → Ajustes para mostrar el botón de contacto.</p>' : ''}
     <div class="menu">
       ${me() ? `<a href="#/mine">Mis Cursos${ic.chev}</a>` : ''}
-      ${isAdmin() ? `<a href="#/admin">Panel de administradora${ic.chev}</a>` : ''}
+      ${isAdmin() ? `<a href="#/admin">Panel de administradora${ic.chev}</a>
+        <button data-act="regionTest">Ver la app como: ${isVE() ? '🇻🇪 Venezuela' : '🌎 Internacional'} <span class="chev small muted" style="margin-left:auto">Cambiar</span></button>` : ''}
       <a href="privacidad.html">Política de Privacidad${ic.chev}</a>
       <a href="terminos.html">Condiciones del Servicio${ic.chev}</a>
-      ${me() ? `<button data-act="logout" style="color:var(--bad)">Cerrar sesión</button>` : ''}
+      ${me() ? `<button data-act="logout">Cerrar sesión</button>` : ''}
+      ${me() && !isAdmin() ? `<button data-act="deleteAccount" style="color:var(--bad)">Eliminar mi cuenta</button>` : ''}
     </div>`;
 }
 
@@ -269,7 +291,7 @@ function vAdmin() {
         <div class="info">
           <span class="chip ${r.status === 'pendiente' ? 'warn' : r.status === 'aprobado' ? 'ok' : 'bad'}">${r.status === 'pendiente' ? 'Por revisar' : r.status === 'aprobado' ? 'Aprobado' : 'Rechazado'}</span>
           <b>${esc(r.name)}</b><span>${esc(r.email)}</span>
-          <span>${esc(course(r.course_id)?.title || 'Curso eliminado')} · $${esc(r.amount)} · ${fecha(r.created_at)}</span>
+          <span>${esc(course(r.course_id)?.title || 'Curso eliminado')} · ${usd(r.amount)} · ${r.region === 'intl' ? '🌎 Internacional' : '🇻🇪 Venezuela'} · ${fecha(r.created_at)}</span>
           ${r.ref ? `<span>Referencia: ${esc(r.ref)}</span>` : ''}
           ${r.status === 'pendiente' ? `<div class="row" style="margin-top:4px"><button class="btn sm primary" data-act="approve" data-id="${r.id}">${ic.check} Activar curso</button><button class="btn sm danger" data-act="reject" data-id="${r.id}">Rechazar</button></div>` : ''}
         </div>
@@ -277,7 +299,7 @@ function vAdmin() {
   } else if (adminTab === 'courses') {
     body = `${S.courses.map(c => `
       <div class="crow">${coverEl(c)}
-        <div class="t"><b>${esc(c.title)}</b><span>${c.lessons.length} lecciones · $${esc(c.price)} · ${c.lessons.filter(l => l.has_video).length} videos</span></div>
+        <div class="t"><b>${esc(c.title)}</b><span>${c.lessons.length} lecciones · 🇻🇪 ${usd(c.price)} · 🌎 ${c.price_intl == null ? '<b style="color:var(--bad)">sin precio</b>' : usd(c.price_intl)} · ${c.lessons.filter(l => l.has_video).length} videos</span></div>
         <div class="acts"><label class="switch"><input type="checkbox" data-toggle="${c.id}" ${c.active ? 'checked' : ''} aria-label="Curso visible: ${esc(c.title)}"><span></span></label>
         <a class="btn sm" href="#/edit/${c.id}">Editar</a></div>
       </div>`).join('')}
@@ -289,7 +311,8 @@ function vAdmin() {
         ${(st.banners || []).length ? `<div class="bangrid">${st.banners.map((b, i) => `<div class="it"><img src="${esc(mediaURL(b))}" alt=""><button data-act="delBanner" data-i="${i}" aria-label="Quitar banner">${ic.x}</button></div>`).join('')}</div>` : '<p class="note plain">Sin banners. Se muestra el diseño de la academia.</p>'}
         <label class="btn" for="banIn">Agregar banner</label><input class="sr" type="file" id="banIn" accept="image/*"></div>
       <form class="panel" id="setForm">
-        <label class="f">Datos para pagar<small>Lo que ve el alumno al inscribirse: banco, Pago Móvil, Zelle, titular.</small><textarea class="in" id="sBank">${esc(st.bank)}</textarea></label>
+        <label class="f">🇻🇪 Datos de pago para Venezuela<small>Lo que ven los alumnos en Venezuela: Pago Móvil, transferencia, Zelle, titular.</small><textarea class="in" id="sBank">${esc(st.bank)}</textarea></label>
+        <label class="f">🌎 Datos de pago internacional (solo USD)<small>Lo que ven los alumnos fuera de Venezuela: Zelle, PayPal, Binance u otro medio en dólares.</small><textarea class="in" id="sBankIntl" placeholder="Zelle: correo@ejemplo.com&#10;Titular: Raciel Chirino">${esc(st.bank_intl || '')}</textarea></label>
         <div class="grid2">
           <label class="f">WhatsApp<input class="in" id="sWa" value="${esc(st.whatsapp)}" placeholder="+58 414 000 0000"></label>
           <label class="f">Correo de la academia<input class="in" id="sEmail" type="email" value="${esc(st.email)}"></label>
@@ -318,7 +341,10 @@ function vEdit(id) {
       <label class="f">Nombre del curso<input class="in" id="cTitle" value="${esc(c.title)}" required></label>
       <label class="f">Descripción<textarea class="in" id="cTag" style="min-height:100px">${esc(c.tagline)}</textarea></label>
       <div class="grid2">
-        <label class="f">Precio (USD)<input class="in" id="cPrice" type="number" min="0" step="1" value="${esc(c.price)}" required></label>
+        <label class="f">🇻🇪 Precio Venezuela (USD)<input class="in" id="cPrice" type="number" min="0" step="0.01" value="${esc(c.price)}" required></label>
+        <label class="f">🌎 Precio internacional (USD)<small>Si lo dejas vacío, fuera de Venezuela dirá "Consultar" y los invitará a escribirte</small><input class="in" id="cPriceIntl" type="number" min="0" step="0.01" value="${esc(c.price_intl ?? '')}"></label>
+      </div>
+      <div class="grid2">
         <label class="f">Nivel<select class="in" id="cLevel">${['Principiante', 'Intermedio', 'Avanzado'].map(v => `<option ${v === c.level ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
       </div>
       <div class="grid2">
@@ -359,25 +385,28 @@ function closeSheet() { $('#sheet').hidden = true; $('#sheetIn').innerHTML = '';
 const sheetHead = t => `<div class="sheet-head"><h2>${t}</h2><button class="iconbtn" style="margin:0" data-act="close" aria-label="Cerrar">${ic.x}</button></div>`;
 function buySheet(c) {
   if (!me()) { go('profile'); return toast('Entra con Google para inscribirte'); }
+  if (priceOf(c) == null) return go('course/' + c.id);
+  const ve = isVE(), price = priceOf(c), bank = ve ? S.settings.bank : (S.settings.bank_intl || '');
   openSheet(`${sheetHead('Inscripción')}
-    <div class="row" style="justify-content:space-between"><b style="font-weight:500">${esc(c.title)}</b><b style="font-size:1.2rem">$${esc(c.price)}</b></div>
+    <div class="row" style="justify-content:space-between"><b style="font-weight:500">${esc(c.title)}</b><b style="font-size:1.2rem">${usd(price)}</b></div>
     <form id="payForm" class="courses" style="gap:16px" data-id="${c.id}">
-      <div class="bcv" id="bcvBox" data-price="${esc(c.price)}">
+      ${ve ? `<div class="bcv" id="bcvBox" data-price="${price}">
         <div class="bcv-top"><img src="images/bcv.png" alt="" width="34" height="34"><span>Tasa Banco Central de Venezuela</span></div>
         <div class="bcv-rate"><span class="usd">$1</span><span class="eq">=</span><b id="bcvRate">Buscando la tasa…</b></div>
         <div class="bcv-total" id="bcvTotal" hidden></div>
         <small id="bcvDate"></small>
-      </div>
-      <div class="courses" style="gap:8px"><b style="font-weight:500">1. Paga $${esc(c.price)} a estos datos</b>
-        <pre class="bank" id="bankTxt">${esc(S.settings.bank)}</pre>
-        <button type="button" class="btn sm" data-act="copyBank" style="align-self:flex-start">Copiar datos</button></div>
+      </div>` : `<div class="intl"><span class="globe" aria-hidden="true">🌎</span><div><b>Pago internacional</b><p>Este curso se paga solo en dólares (USD). No se aceptan otras monedas.</p></div></div>`}
+      <div class="courses" style="gap:8px"><b style="font-weight:500">1. Paga ${usd(price)}${ve ? '' : ' USD'} a estos datos</b>
+        ${bank.trim() ? `<pre class="bank" id="bankTxt">${esc(bank)}</pre>
+        <button type="button" class="btn sm" data-act="copyBank" style="align-self:flex-start">Copiar datos</button>`
+        : `<p class="note plain">Escríbele a Raciel por WhatsApp para recibir los datos de pago.</p>`}</div>
       <div class="courses" style="gap:8px"><b style="font-weight:500">2. Sube el capture del pago</b>
         <label class="drop" for="capIn" id="capDrop"><span>Toca para elegir la imagen</span><span class="small">JPG o PNG</span></label>
         <input class="sr" type="file" id="capIn" accept="image/*"></div>
       <label class="f">Número de referencia <small>Opcional</small><input class="in" id="pRef" inputmode="numeric"></label>
       <button class="btn primary" id="paySend">Enviar comprobante</button>
     </form>`);
-  loadTasa();
+  if (ve) loadTasa();
 }
 const fmtBs = n => n.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 async function loadTasa() {
@@ -546,9 +575,25 @@ document.addEventListener('click', async e => {
     else if (a === 'close') closeSheet();
     else if (a === 'gsiRetry') { gsiLoading = null; render(); }
     else if (a === 'more') { const p = $('#aboutTxt'); const open = p.classList.toggle('clamp') === false; t.classList.toggle('open', open); t.setAttribute('aria-expanded', open); }
+    else if (a === 'regionTest') {
+      S.regionTest = isVE() ? 'intl' : 've';
+      try { sessionStorage.setItem(REGION_TEST_KEY, S.regionTest); } catch (e) {}
+      render(); toast(`Ahora ves los precios de ${S.regionTest === 've' ? 'Venezuela' : 'fuera de Venezuela'}`);
+    }
+    else if (a === 'deleteAccount') {
+      openSheet(`${sheetHead('Eliminar mi cuenta')}
+        <p>Si eliminas tu cuenta se borra para siempre:</p>
+        <ul class="dellist"><li>Tu acceso a los cursos que compraste</li><li>Tu avance en las lecciones</li><li>Tus comprobantes de pago</li></ul>
+        <p class="muted small">Esto no se puede deshacer y no incluye reembolso. Si solo quieres salir, usa <b>Cerrar sesión</b>.</p>
+        <form id="delForm" class="courses" style="gap:14px">
+          <label class="f">Para confirmar, escribe ELIMINAR<input class="in" id="delConfirm" autocomplete="off" autocapitalize="characters" required></label>
+          <button class="btn dangerfill">Eliminar mi cuenta para siempre</button>
+          <button type="button" class="btn" data-act="close">Cancelar</button>
+        </form>`);
+    }
     else if (a === 'authMode') { authMode = t.dataset.m; render(); }
     else if (a === 'copyBank') {
-      try { await navigator.clipboard.writeText(S.settings.bank); toast('Datos copiados'); }
+      try { await navigator.clipboard.writeText($('#bankTxt').textContent); toast('Datos copiados'); }
       catch (err) { const r = document.createRange(); r.selectNodeContents($('#bankTxt')); getSelection().removeAllRanges(); getSelection().addRange(r); toast('Datos seleccionados, cópialos'); }
     }
     else if (a === 'markDone') toggleDone(t.dataset.l);
@@ -697,6 +742,19 @@ document.addEventListener('submit', async e => {
       if (error) throw error;
       restore(); authMode = 'in'; render(); toast('Te enviamos el enlace. Revisa tu correo.');
     }
+    else if (f.id === 'delForm') {
+      if ($('#delConfirm').value.trim().toUpperCase() !== 'ELIMINAR') return toast('Escribe ELIMINAR para confirmar');
+      restore = busy(btn, 'Eliminando…');
+      const uid = S.user.id;
+      const { data: files } = await sb.storage.from('captures').list(uid, { limit: 1000 });
+      if (files?.length) await sb.storage.from('captures').remove(files.map(x => `${uid}/${x.name}`));
+      const { error } = await sb.rpc('delete_my_account');
+      if (error) throw error;
+      try { localStorage.removeItem(CACHE_KEY); } catch (e) {}
+      try { window.google?.accounts?.id?.disableAutoSelect(); } catch (e) {}
+      await sb.auth.signOut({ scope: 'local' });
+      closeSheet(); go('home'); toast('Tu cuenta fue eliminada');
+    }
     else if (f.id === 'newPassForm') {
       restore = busy(btn, 'Guardando…');
       const { error } = await sb.auth.updateUser({ password: $('#npPass').value }); if (error) throw error;
@@ -709,19 +767,19 @@ document.addEventListener('submit', async e => {
       const path = `${S.user.id}/${rid}.jpg`;
       const up = await sb.storage.from('captures').upload(path, await shrink(capFile, 1400), { contentType: 'image/jpeg' });
       if (up.error) throw up.error;
-      const { error } = await sb.from('requests').insert({ id: rid, email: S.user.email, name: S.user.name, course_id: c.id, amount: c.price, ref: $('#pRef').value.trim() || null, capture_path: path });
+      const { error } = await sb.from('requests').insert({ id: rid, email: S.user.email, name: S.user.name, course_id: c.id, amount: priceOf(c), region: isVE() ? 've' : 'intl', ref: $('#pRef').value.trim() || null, capture_path: path });
       if (error) throw error;
       closeSheet(); await refresh(); toast('Comprobante enviado');
     }
     else if (f.id === 'setForm') {
       restore = busy(btn, 'Guardando…');
-      const { error } = await sb.from('settings').update({ bank: $('#sBank').value, whatsapp: $('#sWa').value.trim(), email: $('#sEmail').value.trim() }).eq('id', 1);
+      const { error } = await sb.from('settings').update({ bank: $('#sBank').value, bank_intl: $('#sBankIntl').value, whatsapp: $('#sWa').value.trim(), email: $('#sEmail').value.trim() }).eq('id', 1);
       if (error) throw error;
       await refresh(); toast('Ajustes guardados');
     }
     else if (f.id === 'courseForm') {
       restore = busy(btn, 'Guardando…');
-      const { error } = await sb.from('courses').update({ title: $('#cTitle').value.trim(), tagline: $('#cTag').value.trim(), price: +$('#cPrice').value || 0, level: $('#cLevel').value,
+      const { error } = await sb.from('courses').update({ title: $('#cTitle').value.trim(), tagline: $('#cTag').value.trim(), price: +$('#cPrice').value || 0, price_intl: $('#cPriceIntl').value === '' ? null : +$('#cPriceIntl').value, level: $('#cLevel').value,
         kicker: $('#cKick').value.trim(), sub: $('#cSub').value.trim(), band: (v => v === 'custom' ? $('#bandCustom').value.toUpperCase() : v)(f.querySelector('[name=band]:checked')?.value || '#E27BB5') }).eq('id', f.dataset.id);
       if (error) throw error;
       await refresh(); toast('Curso guardado');
@@ -781,6 +839,7 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 checkVersion();
 
 render();
+detectRegion();
 if (sb) {
   sb.auth.onAuthStateChange((event) => {
     if (event === 'PASSWORD_RECOVERY') { go('profile'); setTimeout(newPassSheet, 300); }

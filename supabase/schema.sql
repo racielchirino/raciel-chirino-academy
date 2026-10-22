@@ -201,3 +201,31 @@ create table if not exists public.tasas (
 alter table public.tasas enable row level security;
 drop policy if exists "tasas: leer" on public.tasas;
 create policy "tasas: leer" on public.tasas for select using (true);
+
+-- ---------- Eliminar cuenta (paso 4) ----------
+
+-- El alumno puede borrar sus propios comprobantes (la app lo hace antes de borrar la cuenta)
+drop policy if exists "comprobantes: borrar propios" on storage.objects;
+create policy "comprobantes: borrar propios" on storage.objects for delete to authenticated
+  using (bucket_id = 'captures' and (storage.foldername(name))[1] = auth.uid()::text);
+
+-- Borra la cuenta de quien la llama. Sus pagos, inscripciones y avance se borran en cascada.
+create or replace function public.delete_my_account()
+returns void
+language plpgsql security definer set search_path = public, auth as $$
+begin
+  if auth.uid() is null then raise exception 'No hay sesión'; end if;
+  if public.is_admin() then raise exception 'La cuenta de la administradora no se puede eliminar desde la app'; end if;
+  delete from auth.users where id = auth.uid();
+end;
+$$;
+revoke execute on function public.delete_my_account() from public, anon;
+grant execute on function public.delete_my_account() to authenticated;
+
+-- ---------- Precios por región (paso 5) ----------
+-- Precio internacional de cada curso (si queda vacío, se usa el de Venezuela)
+alter table public.courses add column if not exists price_intl numeric;
+-- Datos de pago para alumnos fuera de Venezuela (solo USD)
+alter table public.settings add column if not exists bank_intl text not null default '';
+-- Cada pago guarda desde qué región se hizo
+alter table public.requests add column if not exists region text not null default 've' check (region in ('ve','intl'));
