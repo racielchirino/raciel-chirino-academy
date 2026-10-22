@@ -7,7 +7,7 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="description" content="Cursos online de edición de video, redes sociales y community management con Raciel Chirino.">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<meta name="theme-color" content="#FFFFFF">
+<meta name="theme-color" content="#FF6A9E">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -17,27 +17,27 @@
 <meta name="apple-mobile-web-app-title" content="RCH Academy">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&family=Bodoni+Moda:opsz,wght@6..96,600;6..96,800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=Bodoni+Moda:opsz,wght@6..96,600;6..96,800&display=swap">
 <style>
-/* Layout: app móvil de una columna sobre blanco; saludo, carrusel de banners, fila horizontal "Continuar viendo",
-   lista de cursos con portada, barra inferior con píldora rosada. Las portadas son imágenes que sube la administradora. */
+/* Layout: app móvil sobre fondo lavanda; saludo con avatar, banners redondeados, "Mis cursos" como píldoras de color con avance,
+   catálogo en cuadrícula de tarjetas de color, detalle con tarjeta grande y lecciones en tarjetas blancas, botón fijo abajo. */
 :root{
   color-scheme:light;
-  --bg:#FFFFFF; --ink:#141A26; --muted:#8B93A3; --soft:#F5F6F8; --line:#ECEEF2;
-  --coral:#CF6658; --coral-soft:#FBE8E5; --pink:#E27BB5;
+  --page:#F3F2FA; --bg:#FFFFFF; --ink:#1E1B2E; --muted:#8C89A3; --soft:#EFEEF8; --line:#E6E4F2;
+  --coral:#7468EE; --coral-soft:#ECEAFE; --pink:#7468EE;
   --ok:#1E8455; --ok-bg:#E4F4EC; --warn:#946200; --warn-bg:#FDF2D7; --bad:#B8381E; --bad-bg:#FCE6E0;
   --band-rosa:#E27BB5; --band-coral:#CF6658; --band-naranja:#DE8E3A; --band-azul:#2E3B5B; --band-negro:#141A26;
-  --f-body:"Roboto", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-body:"Rubik", system-ui, -apple-system, "Segoe UI", sans-serif;
   --f-serif:"Bodoni Moda", "Didot", "Bodoni 72", Georgia, serif;
   --r:20px;
-  --shadow:0 6px 22px rgba(20,26,38,.09);
+  --shadow:0 8px 22px rgba(30,27,46,.07);
 }
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 html,body{min-height:100%}
-body{margin:0;background:var(--bg);color:var(--ink);font:400 16px/1.5 var(--f-body);-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent;
+body{margin:0;background:var(--page);color:var(--ink);font:400 16px/1.5 var(--f-body);-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent;
   padding-bottom:calc(84px + env(safe-area-inset-bottom,0px))}
-body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:30;background:var(--bg)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:30;background:var(--page)}
 h1,h2,h3{margin:0;line-height:1.2;text-wrap:balance}
 p{margin:0}
 a{color:inherit;text-decoration:none}
@@ -53,7 +53,7 @@ main{padding-block:14px 24px;display:flex;flex-direction:column;gap:26px}
 .hello h1{font-size:1.75rem;font-weight:700;letter-spacing:-.01em}
 
 /* Encabezado de subpáginas */
-.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--bg)}
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--page)}
 .top .wrap{display:flex;align-items:center;gap:8px;min-height:56px}
 .top h2{font-size:1.1rem;font-weight:700;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .iconbtn{width:42px;height:42px;border-radius:50%;border:0;background:none;display:grid;place-items:center;cursor:pointer;margin-left:-10px;flex:none}
@@ -270,10 +270,184 @@ textarea.in{min-height:140px;resize:vertical;line-height:1.5}
 @media (min-width:640px){.sheet{align-items:center}.sheet-in{border-radius:24px}.sheet-in::before{display:none}}
 
 .toast{position:fixed;left:50%;bottom:calc(96px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:50;background:var(--ink);color:#fff;padding:12px 20px;border-radius:99px;font-weight:500;font-size:.92rem;max-width:calc(100% - 32px);box-shadow:var(--shadow)}
+
+/* ===================== Estética: lavanda y tarjetas de color ===================== */
+main{gap:24px}
+.btn{border-radius:18px}
+.btn.primary:hover{background:var(--coral)}
+.panel,.menu,.req,.crow{border:0;box-shadow:var(--shadow);border-radius:24px}
+.note.plain{background:var(--bg)}
+.seg{background:var(--bg);box-shadow:var(--shadow)}
+.seg button.on{background:var(--coral);color:#fff;box-shadow:none}
+.progress span{background:var(--coral)}
+.in{border-color:var(--line)}
+
+/* Encabezado de subpáginas: título centrado */
+.top .wrap{min-height:62px}
+.top h2{text-align:center;font-weight:500;font-size:1.15rem}
+.top .wrap::after{content:"";width:42px;flex:none}
+.iconbtn{margin-left:-8px}
+
+/* Saludo con avatar */
+.homehead{display:flex;align-items:center;gap:14px;padding-top:16px}
+.av{width:54px;height:54px;border-radius:16px;background:var(--coral-soft);color:var(--coral);display:grid;place-items:center;font-weight:700;font-size:1.35rem;flex:none;overflow:hidden}
+.av img{width:100%;height:100%;object-fit:cover}
+.homehead .t{min-width:0;flex:1}
+.homehead p{font-size:1.15rem;line-height:1.2}
+.homehead h1{font-size:1.25rem;font-weight:600;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.roundbtn{width:46px;height:46px;border-radius:14px;display:grid;place-items:center;color:var(--ink);flex:none}
+.roundbtn:hover{background:var(--bg)}
+
+/* Banners */
+.slides{border-radius:0;padding-bottom:18px;margin-bottom:-12px}
+.slide{border-radius:24px;box-shadow:0 14px 24px -14px rgba(116,104,238,.55)}
+.sec-head h2{font-size:1.2rem;font-weight:500}
+.sec-head a{color:var(--ink);font-weight:400;font-size:1rem}
+
+/* Ícono del curso: cuadro oscuro con iniciales, como los íconos de las apps */
+.ico{width:52px;height:52px;border-radius:12px;background:color-mix(in srgb,var(--b) 22%,#16122E);color:color-mix(in srgb,var(--b) 45%,#fff);
+  display:grid;place-items:center;font-weight:600;font-size:1.4rem;letter-spacing:-.02em;flex:none;line-height:1}
+
+/* Mis cursos: píldora de color con avance */
+.my{--b:#7468EE;display:grid;grid-template-columns:auto 1fr;gap:16px;align-items:center;background:var(--b);color:var(--bt,#fff);
+  border-radius:26px;padding:16px 22px 16px 18px;box-shadow:0 16px 26px -14px color-mix(in srgb,var(--b) 80%,transparent)}
+.my .t{min-width:0;display:flex;flex-direction:column;gap:4px}
+.my b{font-weight:500;font-size:1.05rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.my small{font-size:.85rem;opacity:.85}
+.slider{position:relative;height:4px;border-radius:9px;background:color-mix(in srgb,currentColor 35%,transparent);margin:8px 7px 6px 0}
+.slider span{position:absolute;left:0;top:0;bottom:0;background:currentColor;border-radius:9px;min-width:2px}
+.slider span::after{content:"";position:absolute;right:-7px;top:50%;width:14px;height:14px;border-radius:50%;background:currentColor;transform:translateY(-50%)}
+.mylist{display:flex;flex-direction:column;gap:14px}
+
+/* Catálogo en cuadrícula */
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.tile{--b:#7468EE;position:relative;overflow:hidden;background:var(--b);color:var(--bt,#fff);border-radius:26px;padding:18px 18px 20px;min-height:200px;
+  display:flex;flex-direction:column;justify-content:space-between;gap:16px;box-shadow:0 16px 24px -14px color-mix(in srgb,var(--b) 85%,transparent);transition:transform .15s}
+.tile:active{transform:scale(.98)}
+.tile::after{content:"";position:absolute;right:-34px;top:36px;width:120px;height:120px;border-radius:38% 62% 55% 45%;background:color-mix(in srgb,currentColor 13%,transparent);pointer-events:none}
+.tile .ico{width:46px;height:46px;font-size:1.2rem;border-radius:11px;position:relative;z-index:1}
+.tile .b{position:relative;z-index:1;display:flex;flex-direction:column;gap:8px}
+.tile h3{font-size:1.1rem;font-weight:500;line-height:1.2;overflow-wrap:anywhere}
+.tile .meta{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:.86rem}
+.tile .meta span{opacity:.88}
+.tile .price{font-weight:700;font-size:1.05rem;opacity:1!important}
+.tile .chip{position:absolute;top:16px;right:14px;z-index:2;font-size:.72rem;padding:3px 8px}
+
+/* Detalle del curso */
+.chero{--b:#7468EE;background:var(--b);color:var(--bt,#fff);border-radius:30px;padding:24px 22px;display:flex;flex-direction:column;gap:22px;
+  box-shadow:0 20px 30px -16px color-mix(in srgb,var(--b) 85%,transparent)}
+.chero .head{display:flex;gap:18px;align-items:center}
+.chero .ico{width:84px;height:84px;font-size:2.3rem;border-radius:16px}
+.chero h1{font-size:1.45rem;font-weight:500;line-height:1.2;overflow-wrap:anywhere}
+.chero .by{opacity:.85;font-size:1rem;margin-top:4px}
+.chero .meta{display:flex;flex-wrap:wrap;gap:8px 18px;font-size:.92rem;font-weight:500}
+.chero .meta span{display:inline-flex;align-items:center;gap:6px}
+.about{display:flex;flex-direction:column;gap:10px;padding-inline:4px}
+.about h2{font-size:1.15rem;font-weight:500}
+.about p{color:var(--muted);font-size:.95rem;line-height:1.65}
+.about p.clamp{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.more{align-self:center;background:none;border:0;color:var(--muted);cursor:pointer;padding:2px 10px;border-radius:10px}
+.more svg{transition:transform .2s}
+.more.open svg{transform:rotate(180deg)}
+.coverimg{aspect-ratio:16/9;border-radius:22px;max-width:100%;box-shadow:var(--shadow)}
+
+/* Lecciones en tarjetas */
+.lessons{gap:12px}
+.lesson{--b:var(--coral);background:var(--bg);border-radius:20px;padding:12px 18px 12px 12px;grid-template-columns:58px 1fr auto;gap:16px;min-height:80px;box-shadow:var(--shadow)}
+a.lesson:hover{background:var(--bg);box-shadow:0 10px 24px rgba(30,27,46,.1)}
+.lesson .n{width:58px;height:58px;border-radius:14px;background:var(--b);color:#fff}
+.lesson .n .pc{width:28px;height:28px;border-radius:50%;background:#fff;color:var(--b);display:grid;place-items:center}
+.lesson .n .pc svg{width:14px;height:14px;margin-left:2px}
+.lesson.locked .n{background:var(--soft);color:var(--muted)}
+.lesson.done .n{background:var(--ok);color:#fff}
+.lesson.current{box-shadow:0 0 0 2px var(--b),var(--shadow)}
+.lesson .t{font-size:1.02rem;font-weight:500}
+.lesson .t span{font-size:.88rem;margin-top:2px}
+.lesson > .ic{display:none}
+
+/* Botón fijo abajo */
+.cta{position:fixed;left:0;right:0;bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:15;pointer-events:none}
+.cta .wrap{pointer-events:auto}
+.cta .btn{width:100%;min-height:60px;border-radius:20px;font-size:1.12rem;box-shadow:0 16px 28px -12px rgba(116,104,238,.75)}
+body.has-cta main{padding-bottom:92px}
+
+/* Barra inferior: íconos con círculo activo */
+.tabs{border-top:0;border-radius:26px 26px 0 0;box-shadow:0 -8px 24px rgba(30,27,46,.06)}
+.tabs a{font-size:0;gap:0;padding:12px 4px;color:var(--ink)}
+.tabs .pill{width:58px;height:58px;border-radius:50%}
+.tabs a.on{color:#fff}
+.tabs a.on .pill{background:var(--coral);box-shadow:0 10px 18px -8px var(--coral)}
+.toast{bottom:calc(100px + env(safe-area-inset-bottom,0px))}
+body.has-cta .toast{bottom:calc(170px + env(safe-area-inset-bottom,0px))}
+
+/* Perfil */
+.avatar{border-radius:22px;overflow:hidden;background:var(--coral-soft);color:var(--coral)}
+.avatar img{width:100%;height:100%;object-fit:cover}
+
+/* ===================== Fondo según orientación ===================== */
+:root{--sky:#FF6A9E}
+body{background:var(--sky)}
+.bgfx{position:fixed;inset:0;z-index:-1;background:var(--sky) url(images/fondo-v.jpg) center/cover no-repeat}
+@media (orientation:landscape){.bgfx{background-image:url(images/fondo-h.jpg)}}
+body::before{background:#FF6FB0}
+.top{background:color-mix(in srgb,#FF6A9E 72%,transparent);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+.top h2,.top .iconbtn{color:#fff}
+.top .iconbtn:hover{background:rgba(255,255,255,.18)}
+/* Texto que va directo sobre el fondo rosado */
+.homehead,.hello,.hello p,.sec-head h2,.sec-head a,.detail-head h1,.detail-head .meta,.sec > .row,main > .row h2{color:#fff}
+.sec > .row .muted,main > .row p,.hello p{color:rgba(255,255,255,.88)!important}
+.homehead,.hello,.sec-head,.detail-head,.sec > .row,main > .row{text-shadow:0 2px 10px rgba(150,20,60,.25)}
+.roundbtn{color:#fff;background:rgba(255,255,255,.18)}
+.roundbtn:hover{background:rgba(255,255,255,.28)}
+.av{background:#fff}
+.dots i{background:rgba(255,255,255,.5)}
+.dots i.on{background:#fff}
+.slide{box-shadow:0 18px 30px -16px rgba(120,10,50,.45)}
+.about{background:var(--bg);border-radius:24px;padding:20px;box-shadow:var(--shadow)}
+.progress{background:rgba(255,255,255,.4)}
+.sec > .row + .progress span,.sec .progress span{background:#fff}
+.elesson{background:var(--bg);padding:12px 14px;border-bottom:1px solid var(--line)}
+.elesson:first-child{border-radius:20px 20px 0 0}
+.elesson:last-child{border-radius:0 0 20px 20px;border-bottom:0}
+.tile,.my,.chero{box-shadow:0 18px 28px -14px rgba(120,10,50,.45)}
+.cta .btn{box-shadow:0 18px 30px -12px rgba(80,40,160,.6)}
+
+/* ===================== Horizontal ===================== */
+@media (orientation:landscape) and (min-width:640px){
+  .wrap{max-width:1120px}
+  .carousel{width:100%;max-width:780px;align-self:center}
+  .mylist{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:16px}
+  .grid{grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:18px}
+  /* Curso y lección: dos columnas, lecciones a la derecha */
+  main:has(> .chero),main:has(> #player){display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:28px;row-gap:20px;align-items:start}
+  main:has(> .chero) > *,main:has(> #player) > *{grid-column:1}
+  main:has(> .chero) > section.sec,main:has(> #player) > section.sec{grid-column:2;grid-row:1 / span 8}
+  .cta{left:auto;right:0;width:min(520px,50%)}
+  /* Formularios del panel en dos columnas */
+  main:has(> #courseForm){display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px;align-items:start}
+  main:has(> #courseForm) > *{min-width:0}
+}
+/* Teléfono acostado: poca altura, barra inferior compacta */
+@media (orientation:landscape) and (max-height:520px){
+  body{padding-bottom:calc(64px + env(safe-area-inset-bottom,0px))}
+  .tabs a{padding:5px 4px}
+  .tabs .pill{width:46px;height:46px}
+  .tabs .pill svg{width:22px;height:22px}
+  .cta{bottom:calc(62px + env(safe-area-inset-bottom,0px))}
+  .cta .btn{min-height:50px}
+  .homehead{padding-top:8px}
+  .carousel{max-width:min(560px,calc((100vh - 170px) * 16 / 9))}
+  .chero{padding:18px}
+  .chero .ico{width:64px;height:64px;font-size:1.8rem}
+  .player{max-height:calc(100vh - 140px);aspect-ratio:auto;height:calc(100vh - 140px)}
+  .sheet-in{max-height:96vh}
+  .toast{bottom:calc(74px + env(safe-area-inset-bottom,0px))}
+}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 </style>
 </head>
 <body>
+<div class="bgfx" aria-hidden="true"></div>
 <header class="top" id="top" hidden>
   <div class="wrap">
     <button class="iconbtn" id="back" type="button" aria-label="Volver">
@@ -288,7 +462,7 @@ textarea.in{min-height:140px;resize:vertical;line-height:1.5}
 <nav class="tabs" aria-label="Secciones">
   <div class="wrap">
     <a href="#/home" data-tab="home"><span class="pill">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><rect x="4" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5"/></svg></span>Explorar</a>
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M10.6 3.5a2.2 2.2 0 0 1 2.8 0l6.8 5.6c.5.4.8 1 .8 1.7V19a2 2 0 0 1-2 2h-3.5v-5.5a1.5 1.5 0 0 0-1.5-1.5h-4a1.5 1.5 0 0 0-1.5 1.5V21H5a2 2 0 0 1-2-2v-8.2c0-.7.3-1.3.8-1.7z"/></svg></span>Explorar</a>
     <a href="#/mine" data-tab="mine"><span class="pill">
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round" stroke-linecap="round"><rect x="7" y="7" width="13" height="13" rx="2"/><path d="M4 16V6a2 2 0 0 1 2-2h10"/><path d="M12 11v5l4-2.5z" fill="currentColor"/></svg></span>Mis Cursos</a>
     <a href="#/profile" data-tab="profile"><span class="pill">
@@ -300,8 +474,8 @@ textarea.in{min-height:140px;resize:vertical;line-height:1.5}
 <div class="toast" id="toast" hidden></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script>
-<script src="config.js?v=202610212145"></script>
-<script>window.APP_VERSION="202610212145"</script>
-<script src="app.js?v=202610212145"></script>
+<script src="config.js?v=202610212202"></script>
+<script>window.APP_VERSION="202610212202"</script>
+<script src="app.js?v=202610212202"></script>
 </body>
 </html>

@@ -41,7 +41,7 @@ async function loadAll() {
   try {
     const { data: { session } } = await sb.auth.getSession();
     const u = session?.user;
-    S.user = u ? { id: u.id, email: (u.email || '').toLowerCase(), name: u.user_metadata?.name || u.user_metadata?.full_name || (u.email || '').split('@')[0] } : null;
+    S.user = u ? { id: u.id, email: (u.email || '').toLowerCase(), name: u.user_metadata?.name || u.user_metadata?.full_name || (u.email || '').split('@')[0], avatar: u.user_metadata?.avatar_url || u.user_metadata?.picture || '' } : null;
     const [st, cs, ls] = await Promise.all([
       sb.from('settings').select('*').eq('id', 1).maybeSingle(),
       sb.from('courses').select('*').order('position').order('created_at'),
@@ -106,6 +106,17 @@ function coverEl(c, cls = '') {
 }
 const busy = (btn, txt) => { if (!btn) return () => {}; const o = btn.innerHTML; btn.disabled = true; btn.textContent = txt; return () => { btn.disabled = false; btn.innerHTML = o; }; };
 
+const bstyle = c => `--b:${bandColor(c.band)};--bt:${bandText(c.band)}`;
+const abbr = c => { const w = String(c.kicker || c.title || '?').trim().replace(/^(conviértete en|aprende|curso de)\s+/i, ''); return (w[0] || '?').toUpperCase() + (w[1] || '').toLowerCase(); };
+const icoEl = c => `<span class="ico" aria-hidden="true">${esc(abbr(c))}</span>`;
+const minLabel = d => { const s = sec(d); if (!s) return d || ''; const m = Math.max(1, Math.round(s / 60)); return m >= 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${m} minutos`; };
+const leftLabel = c => { const s = c.lessons.filter(l => !done(l.id)).reduce((a, l) => a + sec(l.dur), 0); return s ? `${human(s)} restantes` : 'Completado'; };
+const avEl = (cls = 'av') => `<span class="${cls}">${S.user?.avatar ? `<img src="${esc(S.user.avatar)}" alt="" referrerpolicy="no-referrer" onerror="this.remove()">` : ''}${esc(((S.user?.name || 'R').trim()[0] || 'R').toUpperCase())}</span>`;
+const myCard = c => { const p = pct(c); const next = c.lessons.find(l => !done(l.id)) || c.lessons[0];
+  return `<a class="my" style="${bstyle(c)}" href="${next ? `#/lesson/${c.id}/${next.id}` : `#/course/${c.id}`}">${icoEl(c)}
+    <div class="t"><b>${esc(c.title)}</b><div class="slider" role="progressbar" aria-valuenow="${p}" aria-valuemin="0" aria-valuemax="100"><span style="width:${p}%"></span></div>
+    <small>${leftLabel(c)} • ${c.lessons.length} lecciones</small></div></a>`; };
+
 const waLink = () => {
   let n = String(S.settings.whatsapp || '').replace(/\D/g, '');
   if (!n) return '';
@@ -126,25 +137,26 @@ function vHome() {
   const slides = banners.length ? banners.map(u => `<div class="slide"><img src="${esc(u)}" alt=""></div>`).join('')
     : `<div class="slide"><div class="slide-default"><span class="big">RACIEL CHIRINO</span><span class="rule">escuela de</span><span class="sub">Contenido</span></div></div>`;
   return `
-    <section class="hello"><p>${greet()}</p><h1>${esc(S.user?.name || 'Bienvenida a la academia')}</h1></section>
+    <section class="homehead">${me() ? `<a href="#/profile">${avEl()}</a>` : `<span class="av"><img src="icons/icon-192.png" alt=""></span>`}
+      <div class="t"><p>${greet().replace(',', '')},</p><h1>${esc(S.user?.name || 'Bienvenida a la academia')}</h1></div>
+      ${waLink() ? `<a class="roundbtn" href="${waLink()}" target="_blank" rel="noopener" aria-label="Escríbeme por WhatsApp">${ic.wa}</a>` : ''}
+    </section>
     ${S.offline ? '<p class="note warn">Sin conexión. Estás viendo la última información guardada.</p>' : ''}
     <section class="carousel">
       <div class="slides" id="slides">${slides}</div>
       ${banners.length > 1 ? `<div class="dots" id="dots">${banners.map((_, i) => `<i class="${i ? '' : 'on'}"></i>`).join('')}</div>` : ''}
     </section>
     ${going.length ? `<section class="sec">
-      <div class="sec-head"><h2>Continuar viendo</h2><a href="#/mine">Ver todos</a></div>
-      <div class="hrow">${going.map(c => { const p = pct(c); const next = c.lessons.find(l => !done(l.id)) || c.lessons[0];
-        return `<a class="cw" href="${next ? `#/lesson/${c.id}/${next.id}` : `#/course/${c.id}`}">${coverEl(c)}
-          <div class="band" style="--b:${bandColor(c.band)};color:${bandText(c.band)}"><b>${esc(c.title)}</b><div class="pr"><div class="bar"><span style="width:${p}%"></span></div>${p}%</div></div></a>`; }).join('')}</div>
+      <div class="sec-head"><h2>Mis cursos</h2><a href="#/mine">Ver todos</a></div>
+      <div class="mylist">${going.slice(0, 2).map(myCard).join('')}</div>
     </section>` : ''}
     <section class="sec">
       <div class="sec-head"><h2>Todos los cursos</h2></div>
-      <div class="courses">${list.map(c => `
-        <a class="cc" href="#/course/${c.id}">${coverEl(c)}
-          <div class="info" style="--b:${bandColor(c.band)};background:var(--b);color:${bandText(c.band)}">${statusChip(c)}<h3>${esc(c.title)}</h3>
-            <div class="meta"><span>${esc(c.level)}</span><span>${c.lessons.length} lecciones · ${human(total(c))}</span><span class="price">$${esc(c.price)}</span></div></div>
-        </a>`).join('') || `<p class="note plain">${S.loaded ? 'Pronto habrá cursos disponibles.' : 'Cargando cursos…'}</p>`}</div>
+      ${list.length ? `<div class="grid">${list.map(c => `
+        <a class="tile" style="${bstyle(c)}" href="#/course/${c.id}">${statusChip(c)}${icoEl(c)}
+          <div class="b"><h3>${esc(c.title)}</h3>
+            <div class="meta"><span>${c.lessons.length} lecciones</span><span class="price">$${esc(c.price)}</span></div></div>
+        </a>`).join('')}</div>` : `<p class="note plain">${S.loaded ? 'Pronto habrá cursos disponibles.' : 'Cargando cursos…'}</p>`}
     </section>`;
 }
 function statusChip(c) {
@@ -157,8 +169,9 @@ function lessonRows(c, currentId) {
   const acc = hasAccess(c.id);
   return `<ol class="lessons">${c.lessons.map((l, i) => {
     const d = done(l.id);
-    const inner = `<span class="n">${d ? ic.check : i + 1}</span><span class="t">${esc(l.title)}<span>${esc(l.dur || '--:--')}</span></span>${acc ? ic.play : ic.lock}`;
-    return `<li>${acc ? `<a class="lesson${d ? ' done' : ''}${l.id === currentId ? ' current' : ''}" href="#/lesson/${c.id}/${l.id}">${inner}</a>` : `<div class="lesson">${inner}</div>`}</li>`;
+    const tile = !acc ? ic.lock : d ? ic.check : `<span class="pc">${ic.play}</span>`;
+    const inner = `<span class="n">${tile}</span><span class="t">${esc(l.title)}<span>${i + 1}. ${esc(minLabel(l.dur) || 'Próximamente')}</span></span>`;
+    return `<li>${acc ? `<a class="lesson${d ? ' done' : ''}${l.id === currentId ? ' current' : ''}" style="${bstyle(c)}" href="#/lesson/${c.id}/${l.id}">${inner}</a>` : `<div class="lesson locked">${inner}</div>`}</li>`;
   }).join('')}</ol>`;
 }
 function vCourse(id) {
@@ -166,16 +179,27 @@ function vCourse(id) {
   if (!c) return `<p class="note plain">${S.loaded ? 'Este curso no está disponible.' : 'Cargando…'}</p>`;
   const acc = hasAccess(id), r = lastReq(id);
   const next = c.lessons.find(l => !done(l.id)) || c.lessons[0];
-  let action;
-  if (acc) action = next ? `<a class="btn primary block" href="#/lesson/${c.id}/${next.id}">${c.lessons.some(l => done(l.id)) ? `Continuar · ${pct(c)}%` : 'Empezar el curso'}</a>` : `<p class="note plain">Las lecciones se están preparando.</p>`;
-  else if (r && r.status === 'pendiente') action = `<p class="note warn"><b>Recibimos tu comprobante.</b> Raciel lo está revisando y activará tu curso en cuanto confirme el pago.</p>`;
-  else action = `${r && r.status === 'rechazado' ? `<p class="note bad">Tu último comprobante no se pudo confirmar. Revisa los datos del pago y envíalo de nuevo.</p>` : ''}
-    <button class="btn primary block" data-act="buy" data-id="${c.id}">Inscribirme por $${esc(c.price)}</button>
-    <p class="small muted center">Pagas por transferencia o Pago Móvil y subes el capture. Tu acceso se activa cuando se confirma el pago.</p>`;
-  return `${coverEl(c, 'hero')}
-    <div class="detail-head"><h1>${esc(c.title)}</h1><p class="meta">${esc(c.level)} · ${c.lessons.length} lecciones · ${human(total(c))}</p><p class="lead">${esc(c.tagline)}</p></div>
-    <div class="box">${action}</div>
-    <section class="sec"><div class="sec-head"><h2>Contenido</h2></div>${lessonRows(c)}</section>`;
+  let cta = '', note = '';
+  if (acc) cta = next ? `<a class="btn primary" href="#/lesson/${c.id}/${next.id}">${c.lessons.some(l => done(l.id)) ? `Continuar · ${pct(c)}%` : 'Empezar el curso'}</a>` : '';
+  else if (r && r.status === 'pendiente') note = `<p class="note warn"><b>Recibimos tu comprobante.</b> Raciel lo está revisando y activará tu curso en cuanto confirme el pago.</p>`;
+  else {
+    if (r && r.status === 'rechazado') note = `<p class="note bad">Tu último comprobante no se pudo confirmar. Revisa los datos del pago y envíalo de nuevo.</p>`;
+    cta = `<button class="btn primary" data-act="buy" data-id="${c.id}">Inscribirme por $${esc(c.price)}</button>`;
+  }
+  const cover = mediaURL(c.cover_path);
+  return `<section class="chero" style="${bstyle(c)}">
+      <div class="head">${icoEl(c)}<div style="min-width:0"><h1>${esc(c.title)}</h1><p class="by">por Raciel Chirino</p></div></div>
+      <div class="meta"><span>${esc(c.level)}</span><span>${ic.play} ${human(total(c))}</span><span>${c.lessons.length} lecciones</span>${acc ? '' : `<span>$${esc(c.price)}</span>`}</div>
+    </section>
+    ${note}
+    <section class="about">
+      <h2>Sobre este curso</h2>
+      <p class="clamp" id="aboutTxt">${esc(c.tagline || 'Pronto agregaremos la descripción de este curso.')}</p>
+      <button class="more" data-act="more" aria-label="Ver más" aria-expanded="false"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button>
+      ${cover ? `<div class="img coverimg"><img src="${esc(cover)}" alt="" loading="lazy" onerror="this.parentNode.remove()"></div>` : ''}
+    </section>
+    <section class="sec"><div class="sec-head"><h2>Contenido</h2></div>${lessonRows(c)}</section>
+    ${cta ? `<div class="cta"><div class="wrap">${cta}</div></div>` : ''}`;
 }
 function vLesson(cid, lid) {
   const c = course(cid);
@@ -199,8 +223,7 @@ function vMine() {
   const pend = S.reqs.filter(r => r.status === 'pendiente');
   return `<section class="hello"><h1>Mis Cursos</h1></section>
     ${pend.map(r => `<p class="note warn">Pago en revisión: <b>${esc(course(r.course_id)?.title || '')}</b></p>`).join('')}
-    ${mine.length ? `<div class="courses" style="gap:14px">${mine.map(c => { const p = pct(c); return `
-      <a class="mine" href="#/course/${c.id}">${coverEl(c)}<div class="t"><b>${esc(c.title)}</b><div class="progress"><span style="width:${p}%"></span></div><span class="small muted">${p}% completado</span></div></a>`; }).join('')}</div>`
+    ${mine.length ? `<div class="mylist">${mine.map(myCard).join('')}</div>`
       : `<p class="note plain">Aún no tienes cursos activos. <a href="#/home" style="color:var(--coral);font-weight:500">Explora el catálogo</a>.</p>`}`;
 }
 let installEvt = null, authMode = 'in';
@@ -219,7 +242,7 @@ function vProfile() {
       <p class="small muted">Al continuar aceptas las <a href="terminos.html" style="color:var(--coral)">Condiciones del Servicio</a> y la <a href="privacidad.html" style="color:var(--coral)">Política de Privacidad</a>.</p>
     </div>`;
   return `<section class="hello"><h1>Perfil</h1></section>
-    ${me() ? `<div class="row" style="gap:16px"><span class="avatar">${esc((S.user.name.trim()[0] || '?').toUpperCase())}</span><div style="min-width:0"><h2 style="font-size:1.25rem">${esc(S.user.name)}</h2><p class="muted" style="overflow-wrap:anywhere">${esc(S.user.email)}</p></div></div>` : auth}
+    ${me() ? `<div class="row" style="gap:16px">${avEl('avatar')}<div style="min-width:0"><h2 style="font-size:1.25rem">${esc(S.user.name)}</h2><p class="muted" style="overflow-wrap:anywhere">${esc(S.user.email)}</p></div></div>` : auth}
     ${install}
     ${waLink() ? `<a class="btn block wa" href="${waLink()}" target="_blank" rel="noopener">${ic.wa}Escríbeme por WhatsApp</a>`
       : isAdmin() ? '<p class="note plain small">Agrega tu número de WhatsApp en Panel de administradora → Ajustes para mostrar el botón de contacto.</p>' : ''}
@@ -379,7 +402,7 @@ function render() {
   const [v, a, b] = route.split('/');
   let html, title = '';
   if (!sb) html = vSetup();
-  else if (v === 'course') { html = vCourse(a); title = course(a)?.title || ''; }
+  else if (v === 'course') { html = vCourse(a); title = 'Curso'; }
   else if (v === 'lesson') { html = vLesson(a, b); title = course(a)?.title || ''; }
   else if (v === 'mine') html = vMine();
   else if (v === 'profile') html = vProfile();
@@ -389,6 +412,7 @@ function render() {
   $('#view').innerHTML = html;
   const tab = { course: 'home', lesson: 'mine', admin: 'profile', edit: 'profile' }[v] || v || 'home';
   document.querySelectorAll('.tabs a').forEach(t => t.classList.toggle('on', t.dataset.tab === tab));
+  document.body.classList.toggle('has-cta', !!$('#view .cta'));
   $('#top').hidden = ['home', 'mine', 'profile', ''].includes(v); $('#topTitle').textContent = title;
   if (route !== lastRoute) { scrollTo(0, 0); lastRoute = route; }
   after();
@@ -492,6 +516,7 @@ document.addEventListener('click', async e => {
     if (a === 'buy') buySheet(course(t.dataset.id));
     else if (a === 'close') closeSheet();
     else if (a === 'gsiRetry') { gsiLoading = null; render(); }
+    else if (a === 'more') { const p = $('#aboutTxt'); const open = p.classList.toggle('clamp') === false; t.classList.toggle('open', open); t.setAttribute('aria-expanded', open); }
     else if (a === 'authMode') { authMode = t.dataset.m; render(); }
     else if (a === 'copyBank') {
       try { await navigator.clipboard.writeText(S.settings.bank); toast('Datos copiados'); }
