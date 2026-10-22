@@ -195,6 +195,7 @@ function vProfile() {
         <label class="f">Correo<input class="in" id="fEmail" type="email" required autocomplete="email"></label>
         <button class="btn primary">Enviar enlace</button><button type="button" class="btn" data-act="authMode" data-m="in">Volver</button></form>`
     : `<button class="btn block gbtn" data-act="google">${ic.google}Continuar con Google</button>
+      <p class="small muted center" style="margin-top:-8px">Al continuar aceptas las <a href="terminos.html" style="color:var(--coral)">Condiciones del Servicio</a> y la <a href="privacidad.html" style="color:var(--coral)">Política de Privacidad</a>.</p>
       <div class="or"><span>o con tu correo</span></div>
       <div class="seg"><button class="${authMode === 'in' ? 'on' : ''}" data-act="authMode" data-m="in">Entrar</button><button class="${authMode === 'up' ? 'on' : ''}" data-act="authMode" data-m="up">Crear cuenta</button></div>
       <form class="panel" id="authForm">
@@ -212,6 +213,8 @@ function vProfile() {
       ${st.whatsapp ? `<div style="padding:16px">WhatsApp: <b style="user-select:all;font-weight:500">${esc(st.whatsapp)}</b></div>` : ''}
       ${st.email ? `<div style="padding:16px;overflow-wrap:anywhere">Correo: <b style="user-select:all;font-weight:500">${esc(st.email)}</b></div>` : ''}
       ${isAdmin() ? `<a href="#/admin">Panel de administradora${ic.chev}</a>` : ''}
+      <a href="privacidad.html">Política de Privacidad${ic.chev}</a>
+      <a href="terminos.html">Condiciones del Servicio${ic.chev}</a>
       ${me() ? `<button data-act="logout" style="color:var(--bad)">Cerrar sesión</button>` : ''}
     </div>`;
 }
