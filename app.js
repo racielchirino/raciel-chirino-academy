@@ -31,6 +31,7 @@ try { const c = JSON.parse(localStorage.getItem(CACHE_KEY)); if (c && c.courses)
 
 const me = () => S.user && S.user.email;
 /* ===== Región: Venezuela o internacional ===== */
+const FLAG_VE = '<svg class="flag" viewBox="0 0 30 20" aria-hidden="true"><rect width="30" height="20" fill="#CF142B"/><rect width="30" height="13.33" fill="#00247D"/><rect width="30" height="6.67" fill="#FFCC00"/><g fill="#fff">' + [[-50],[-35],[-20],[-6.5],[6.5],[20],[35],[50]].map(([a]) => `<circle cx="${(15 + 5.2 * Math.sin(a * Math.PI / 180)).toFixed(2)}" cy="${(14.2 - 5.2 * Math.cos(a * Math.PI / 180)).toFixed(2)}" r=".7"/>`).join('') + '</g></svg>';
 const REGION_KEY = 'rca_region_v1', REGION_TEST_KEY = 'rca_region_test';
 const tzVE = () => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone === 'America/Caracas'; } catch (e) { return false; } };
 const isVE = () => (S.regionTest || S.region || (tzVE() ? 've' : 'intl')) === 've';
@@ -269,7 +270,7 @@ function vProfile() {
     <div class="menu">
       ${me() ? `<a href="#/mine">Mis Cursos${ic.chev}</a>` : ''}
       ${isAdmin() ? `<a href="#/admin">Panel de administradora${ic.chev}</a>
-        <button data-act="regionTest">Ver la app como: ${isVE() ? '🇻🇪 Venezuela' : '🌎 Internacional'} <span class="chev small muted" style="margin-left:auto">Cambiar</span></button>` : ''}
+        <button data-act="regionTest">Ver la app como: ${isVE() ? FLAG_VE + ' Venezuela' : '🌎 Internacional'} <span class="chev small muted" style="margin-left:auto">Cambiar</span></button>` : ''}
       <a href="privacidad.html">Política de Privacidad${ic.chev}</a>
       <a href="terminos.html">Condiciones del Servicio${ic.chev}</a>
       ${me() ? `<button data-act="logout">Cerrar sesión</button>` : ''}
@@ -291,7 +292,7 @@ function vAdmin() {
         <div class="info">
           <span class="chip ${r.status === 'pendiente' ? 'warn' : r.status === 'aprobado' ? 'ok' : 'bad'}">${r.status === 'pendiente' ? 'Por revisar' : r.status === 'aprobado' ? 'Aprobado' : 'Rechazado'}</span>
           <b>${esc(r.name)}</b><span>${esc(r.email)}</span>
-          <span>${esc(course(r.course_id)?.title || 'Curso eliminado')} · ${usd(r.amount)} · ${r.region === 'intl' ? '🌎 Internacional' : '🇻🇪 Venezuela'} · ${fecha(r.created_at)}</span>
+          <span>${esc(course(r.course_id)?.title || 'Curso eliminado')} · ${usd(r.amount)} · ${r.region === 'intl' ? '🌎 Internacional' : FLAG_VE + ' Venezuela'} · ${fecha(r.created_at)}</span>
           ${r.ref ? `<span>Referencia: ${esc(r.ref)}</span>` : ''}
           ${r.status === 'pendiente' ? `<div class="row" style="margin-top:4px"><button class="btn sm primary" data-act="approve" data-id="${r.id}">${ic.check} Activar curso</button><button class="btn sm danger" data-act="reject" data-id="${r.id}">Rechazar</button></div>` : ''}
         </div>
@@ -299,7 +300,7 @@ function vAdmin() {
   } else if (adminTab === 'courses') {
     body = `${S.courses.map(c => `
       <div class="crow">${coverEl(c)}
-        <div class="t"><b>${esc(c.title)}</b><span>${c.lessons.length} lecciones · 🇻🇪 ${usd(c.price)} · 🌎 ${c.price_intl == null ? '<b style="color:var(--bad)">sin precio</b>' : usd(c.price_intl)} · ${c.lessons.filter(l => l.has_video).length} videos</span></div>
+        <div class="t"><b>${esc(c.title)}</b><span>${c.lessons.length} lecciones · ${FLAG_VE} ${usd(c.price)} · 🌎 ${c.price_intl == null ? '<b style="color:var(--bad)">sin precio</b>' : usd(c.price_intl)} · ${c.lessons.filter(l => l.has_video).length} videos</span></div>
         <div class="acts"><label class="switch"><input type="checkbox" data-toggle="${c.id}" ${c.active ? 'checked' : ''} aria-label="Curso visible: ${esc(c.title)}"><span></span></label>
         <a class="btn sm" href="#/edit/${c.id}">Editar</a></div>
       </div>`).join('')}
@@ -311,7 +312,7 @@ function vAdmin() {
         ${(st.banners || []).length ? `<div class="bangrid">${st.banners.map((b, i) => `<div class="it"><img src="${esc(mediaURL(b))}" alt=""><button data-act="delBanner" data-i="${i}" aria-label="Quitar banner">${ic.x}</button></div>`).join('')}</div>` : '<p class="note plain">Sin banners. Se muestra el diseño de la academia.</p>'}
         <label class="btn" for="banIn">Agregar banner</label><input class="sr" type="file" id="banIn" accept="image/*"></div>
       <form class="panel" id="setForm">
-        <label class="f">🇻🇪 Datos de pago para Venezuela<small>Lo que ven los alumnos en Venezuela: Pago Móvil, transferencia, Zelle, titular.</small><textarea class="in" id="sBank">${esc(st.bank)}</textarea></label>
+        <label class="f">${FLAG_VE} Datos de pago para Venezuela<small>Lo que ven los alumnos en Venezuela: Pago Móvil, transferencia, Zelle, titular.</small><textarea class="in" id="sBank">${esc(st.bank)}</textarea></label>
         <label class="f">🌎 Datos de pago internacional (solo USD)<small>Lo que ven los alumnos fuera de Venezuela: Zelle, PayPal, Binance u otro medio en dólares.</small><textarea class="in" id="sBankIntl" placeholder="Zelle: correo@ejemplo.com&#10;Titular: Raciel Chirino">${esc(st.bank_intl || '')}</textarea></label>
         <div class="grid2">
           <label class="f">WhatsApp<input class="in" id="sWa" value="${esc(st.whatsapp)}" placeholder="+58 414 000 0000"></label>
@@ -341,7 +342,7 @@ function vEdit(id) {
       <label class="f">Nombre del curso<input class="in" id="cTitle" value="${esc(c.title)}" required></label>
       <label class="f">Descripción<textarea class="in" id="cTag" style="min-height:100px">${esc(c.tagline)}</textarea></label>
       <div class="grid2">
-        <label class="f">🇻🇪 Precio Venezuela (USD)<input class="in" id="cPrice" type="number" min="0" step="0.01" value="${esc(c.price)}" required></label>
+        <label class="f">${FLAG_VE} Precio Venezuela (USD)<input class="in" id="cPrice" type="number" min="0" step="0.01" value="${esc(c.price)}" required></label>
         <label class="f">🌎 Precio internacional (USD)<small>Si lo dejas vacío, fuera de Venezuela dirá "Consultar" y los invitará a escribirte</small><input class="in" id="cPriceIntl" type="number" min="0" step="0.01" value="${esc(c.price_intl ?? '')}"></label>
       </div>
       <div class="grid2">

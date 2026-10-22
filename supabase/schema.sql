@@ -229,3 +229,4 @@ alter table public.courses add column if not exists price_intl numeric;
 alter table public.settings add column if not exists bank_intl text not null default '';
 -- Cada pago guarda desde qué región se hizo
 alter table public.requests add column if not exists region text not null default 've' check (region in ('ve','intl'));
+notify pgrst, 'reload schema';
