@@ -194,7 +194,7 @@ function vProfile() {
     ? `<form class="panel" id="forgotForm"><b style="font-weight:500;font-size:1.1rem">Recupera tu contraseña</b><p class="muted small">Te enviaremos un enlace a tu correo para crear una nueva.</p>
         <label class="f">Correo<input class="in" id="fEmail" type="email" required autocomplete="email"></label>
         <button class="btn primary">Enviar enlace</button><button type="button" class="btn" data-act="authMode" data-m="in">Volver</button></form>`
-    : `<div id="gsi" class="gsi"><button class="btn block gbtn" data-act="google">${ic.google}Continuar con Google</button></div>
+    : `<div id="gsi" class="gsi"><span class="btn block gbtn" aria-disabled="true" style="opacity:.6;cursor:wait">${ic.google}Cargando Google…</span></div>
       <p class="small muted center" style="margin-top:-8px">Al continuar aceptas las <a href="terminos.html" style="color:var(--coral)">Condiciones del Servicio</a> y la <a href="privacidad.html" style="color:var(--coral)">Política de Privacidad</a>.</p>
       <div class="or"><span>o con tu correo</span></div>
       <div class="seg"><button class="${authMode === 'in' ? 'on' : ''}" data-act="authMode" data-m="in">Entrar</button><button class="${authMode === 'up' ? 'on' : ''}" data-act="authMode" data-m="up">Crear cuenta</button></div>
@@ -414,7 +414,9 @@ async function mountGoogle() {
     });
     box.innerHTML = '';
     google.accounts.id.renderButton(box, { type: 'standard', theme: 'outline', size: 'large', shape: 'pill', text: 'continue_with', logo_alignment: 'center', locale: 'es', width: Math.min(400, Math.max(240, box.clientWidth || 320)) });
-  } catch (e) { /* si Google no carga, queda el botón de respaldo */ }
+  } catch (e) {
+    if (document.body.contains(box)) box.innerHTML = `<button class="btn block gbtn" data-act="gsiRetry">${ic.google}No cargó Google · Reintentar</button>`;
+  }
 }
 
 async function after() {
@@ -473,10 +475,7 @@ document.addEventListener('click', async e => {
   try {
     if (a === 'buy') buySheet(course(t.dataset.id));
     else if (a === 'close') closeSheet();
-    else if (a === 'google') {
-      const { error } = await sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: location.origin + location.pathname, queryParams: { prompt: 'select_account' } } });
-      if (error) throw error;
-    }
+    else if (a === 'gsiRetry') { gsiLoading = null; render(); }
     else if (a === 'authMode') { authMode = t.dataset.m; render(); }
     else if (a === 'copyBank') {
       try { await navigator.clipboard.writeText(S.settings.bank); toast('Datos copiados'); }
