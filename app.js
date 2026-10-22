@@ -133,7 +133,7 @@ function vHome() {
       <div class="sec-head"><h2>Todos los cursos</h2></div>
       <div class="courses">${list.map(c => `
         <a class="cc" href="#/course/${c.id}">${coverEl(c)}
-          <div class="info">${statusChip(c)}<h3>${esc(c.title)}</h3>
+          <div class="info" style="--b:${bandColor(c.band)};background:var(--b);color:${bandText(c.band)}">${statusChip(c)}<h3>${esc(c.title)}</h3>
             <div class="meta"><span>${esc(c.level)}</span><span>${c.lessons.length} lecciones · ${human(total(c))}</span><span class="price">$${esc(c.price)}</span></div></div>
         </a>`).join('') || `<p class="note plain">${S.loaded ? 'Pronto habrá cursos disponibles.' : 'Cargando cursos…'}</p>`}</div>
     </section>`;

@@ -1,5 +1,5 @@
 // Raciel Chirino Academy — service worker (funciona sin conexión)
-const CACHE = 'rca-v7';
+const CACHE = 'rca-v8';
 const SHELL = ['./', 'index.html', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png', 'app.js', 'config.js',
   'images/instagram-desde-cero.jpg', 'images/creador-de-contenido.jpg', 'images/escuela-a-empresarios.jpg'];
 
