@@ -10,7 +10,20 @@ const MAX_VIDEO_MB = 50; // límite por archivo del plan gratis de Supabase
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const newId = () => (crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 3 | 8)).toString(16); }));
-const BANDS = { rosa: 'Rosa', coral: 'Coral', naranja: 'Naranja', azul: 'Azul', negro: 'Negro' };
+// Colores de la franja: grupos para elegir rápido + selector libre
+const LEGACY_BANDS = { rosa: '#E27BB5', coral: '#CF6658', naranja: '#DE8E3A', azul: '#2E3B5B', negro: '#141A26' };
+const PALETTE = [
+  ['Rosas', [['#F8BBD9','Rosa bebé'],['#F48FB1','Rosa chicle'],['#E27BB5','Rosa academia'],['#EC407A','Rosa intenso'],['#D81B60','Fucsia'],['#C2185B','Frambuesa'],['#AD1457','Magenta'],['#880E4F','Vino rosa']]],
+  ['Rojos y corales', [['#FFAB91','Durazno'],['#FF8A65','Salmón'],['#E8604C','Coral vivo'],['#CF6658','Coral academia'],['#E53935','Rojo'],['#C62828','Rojo cereza'],['#B71C1C','Rojo profundo'],['#7F1D1D','Vino tinto']]],
+  ['Naranjas y amarillos', [['#FFE082','Vainilla'],['#FFD54F','Mostaza suave'],['#F2A900','Mostaza'],['#FFB300','Ámbar'],['#FB8C00','Naranja'],['#DE8E3A','Naranja academia'],['#EF6C00','Mandarina'],['#BF5B04','Terracota']]],
+  ['Verdes', [['#C5E1A5','Pistacho'],['#9CCC65','Lima'],['#66BB6A','Verde hoja'],['#2BB3A3','Turquesa'],['#26A69A','Verde agua'],['#2E7D32','Verde bosque'],['#4E6E58','Salvia oscura'],['#1B4332','Verde esmeralda']]],
+  ['Azules', [['#B3E5FC','Celeste'],['#4FC3F7','Cielo'],['#29B6F6','Azul claro'],['#1E88E5','Azul'],['#1565C0','Azul rey'],['#3949AB','Índigo'],['#2E3B5B','Azul academia'],['#0D1B3E','Azul marino']]],
+  ['Morados', [['#E1BEE7','Lavanda'],['#CE93D8','Lila'],['#BA68C8','Orquídea'],['#AB47BC','Violeta'],['#8E24AA','Morado'],['#6A1B9A','Uva'],['#4A148C','Berenjena'],['#2D0B4E','Morado noche']]],
+  ['Neutros', [['#F3E5D8','Crema'],['#D7C4B2','Arena'],['#BCAAA4','Taupe'],['#A1887F','Café con leche'],['#795548','Café'],['#9E9E9E','Gris'],['#546E7A','Gris azulado'],['#141A26','Negro']]]
+];
+const ALL_COLORS = PALETTE.flatMap(([, cs]) => cs);
+const bandColor = b => /^#[0-9a-f]{6}$/i.test(b || '') ? b : (LEGACY_BANDS[b] || LEGACY_BANDS.rosa);
+const bandText = b => { const h = bandColor(b).slice(1); const [r, g, bl] = [0, 2, 4].map(i => parseInt(h.substr(i, 2), 16) / 255).map(v => v <= .03928 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4); return (.2126 * r + .7152 * g + .0722 * bl) > .45 ? '#141A26' : '#FFFFFF'; };
 
 /* ============ Estado ============ */
 let S = { settings: { bank: '', whatsapp: '', email: '', banners: [] }, courses: [], enroll: [], reqs: [], done: {}, allReqs: [], user: null, offline: false, loaded: false };
@@ -88,7 +101,7 @@ const ic = {
 };
 function coverEl(c, cls = '') {
   const u = mediaURL(c.cover_path);
-  return `<div class="img ${cls}"><div class="ph" style="--b:var(--band-${c.band || 'rosa'})"><span class="k">${esc(c.kicker || c.title)}</span>${c.sub ? `<span class="s">${esc(c.sub)}</span>` : ''}</div>${u ? `<img src="${esc(u)}" alt="" loading="lazy" onerror="this.remove()">` : ''}</div>`;
+  return `<div class="img ${cls}"><div class="ph" style="--b:${bandColor(c.band)}"><span class="k">${esc(c.kicker || c.title)}</span>${c.sub ? `<span class="s">${esc(c.sub)}</span>` : ''}</div>${u ? `<img src="${esc(u)}" alt="" loading="lazy" onerror="this.remove()">` : ''}</div>`;
 }
 const busy = (btn, txt) => { if (!btn) return () => {}; const o = btn.innerHTML; btn.disabled = true; btn.textContent = txt; return () => { btn.disabled = false; btn.innerHTML = o; }; };
 
@@ -114,7 +127,7 @@ function vHome() {
       <div class="sec-head"><h2>Continuar viendo</h2><a href="#/mine">Ver todos</a></div>
       <div class="hrow">${going.map(c => { const p = pct(c); const next = c.lessons.find(l => !done(l.id)) || c.lessons[0];
         return `<a class="cw" href="${next ? `#/lesson/${c.id}/${next.id}` : `#/course/${c.id}`}">${coverEl(c)}
-          <div class="band" style="--b:var(--band-${c.band || 'rosa'})"><b>${esc(c.title)}</b><div class="pr"><div class="bar"><span style="width:${p}%"></span></div>${p}%</div></div></a>`; }).join('')}</div>
+          <div class="band" style="--b:${bandColor(c.band)};color:${bandText(c.band)}"><b>${esc(c.title)}</b><div class="pr"><div class="bar"><span style="width:${p}%"></span></div>${p}%</div></div></a>`; }).join('')}</div>
     </section>` : ''}
     <section class="sec">
       <div class="sec-head"><h2>Todos los cursos</h2></div>
@@ -290,7 +303,10 @@ function vEdit(id) {
         <label class="f">Texto pequeño<input class="in" id="cSub" value="${esc(c.sub || '')}" maxlength="24"></label>
       </div>
       <div class="f" style="display:flex;flex-direction:column;gap:8px;font-size:.9rem;font-weight:500">Color de la franja
-        <div class="swatches">${Object.entries(BANDS).map(([k, n]) => `<label><input type="radio" name="band" value="${k}" ${(c.band || 'rosa') === k ? 'checked' : ''} aria-label="${n}"><i style="background:var(--band-${k})"></i></label>`).join('')}</div></div>
+        <div class="bandpreview" id="bandPrev" style="--b:${bandColor(c.band)};color:${bandText(c.band)}"><b>${esc(c.title)}</b><div class="pr"><div class="bar"><span style="width:40%"></span></div>40%</div></div>
+        ${PALETTE.map(([g, cs]) => `<div class="swgroup"><span class="swlabel">${g}</span><div class="swatches">${cs.map(([hex, n]) => `<label title="${n}"><input type="radio" name="band" value="${hex}" ${bandColor(c.band).toUpperCase() === hex ? 'checked' : ''} aria-label="${n}"><i style="background:${hex}"></i></label>`).join('')}</div></div>`).join('')}
+        <div class="swgroup"><span class="swlabel">Otro color</span>
+          <label class="custom"><input type="radio" name="band" value="custom" id="bandCustomRadio" ${ALL_COLORS.some(([h]) => h === bandColor(c.band).toUpperCase()) ? '' : 'checked'}><input type="color" id="bandCustom" value="${bandColor(c.band)}" aria-label="Elegir cualquier color"><span>Elegir cualquier color</span></label></div></div>
       <button class="btn primary">Guardar curso</button>
     </form>
     <section class="sec"><div class="sec-head"><h2>Lecciones</h2></div>
@@ -552,10 +568,21 @@ document.addEventListener('click', async e => {
     }
   } catch (err) { toast(friendly(err)); }
 });
+document.addEventListener('input', e => {
+  if (e.target.id !== 'bandCustom') return;
+  $('#bandCustomRadio').checked = true;
+  const pv = $('#bandPrev'); if (pv) { pv.style.setProperty('--b', e.target.value); pv.style.color = bandText(e.target.value); }
+});
 document.addEventListener('change', async e => {
   const el = e.target;
   try {
-    if (el.dataset.toggle) {
+    if (el.name === 'band' || el.id === 'bandCustom') {
+    if (el.id === 'bandCustom') $('#bandCustomRadio').checked = true;
+    const v = $('[name=band]:checked')?.value; const hex = v === 'custom' ? $('#bandCustom').value : v;
+    const pv = $('#bandPrev'); if (pv && hex) { pv.style.setProperty('--b', hex); pv.style.color = bandText(hex); }
+    return;
+  }
+  if (el.dataset.toggle) {
       const c = course(el.dataset.toggle);
       const { error } = await sb.from('courses').update({ active: el.checked }).eq('id', c.id); if (error) throw error;
       await refresh(); toast(el.checked ? 'Curso visible en el catálogo' : 'Curso oculto');
@@ -641,7 +668,7 @@ document.addEventListener('submit', async e => {
     else if (f.id === 'courseForm') {
       restore = busy(btn, 'Guardando…');
       const { error } = await sb.from('courses').update({ title: $('#cTitle').value.trim(), tagline: $('#cTag').value.trim(), price: +$('#cPrice').value || 0, level: $('#cLevel').value,
-        kicker: $('#cKick').value.trim(), sub: $('#cSub').value.trim(), band: f.querySelector('[name=band]:checked')?.value || 'rosa' }).eq('id', f.dataset.id);
+        kicker: $('#cKick').value.trim(), sub: $('#cSub').value.trim(), band: (v => v === 'custom' ? $('#bandCustom').value.toUpperCase() : v)(f.querySelector('[name=band]:checked')?.value || '#E27BB5') }).eq('id', f.dataset.id);
       if (error) throw error;
       await refresh(); toast('Curso guardado');
     }
