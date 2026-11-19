@@ -127,7 +127,7 @@ const busy = (btn, txt) => { if (!btn) return () => {}; const o = btn.innerHTML;
 
 const bstyle = c => `--b:${bandColor(c.band)};--bt:${bandText(c.band)}`;
 const abbr = c => { const w = String(c.kicker || c.title || '?').trim().replace(/^(conviértete en|aprende|curso de)\s+/i, ''); return (w[0] || '?').toUpperCase() + (w[1] || '').toLowerCase(); };
-const icoEl = c => `<span class="ico" aria-hidden="true">${esc(abbr(c))}</span>`;
+const icoEl = c => { const u = mediaURL(c.icon_path); return `<span class="ico${u ? ' hasimg' : ''}" aria-hidden="true">${u ? `<img src="${esc(u)}" alt="" loading="lazy" onerror="this.parentNode.classList.remove('hasimg');this.remove()">` : ''}${esc(abbr(c))}</span>`; };
 const minLabel = d => { const s = sec(d); if (!s) return d || ''; const m = Math.max(1, Math.round(s / 60)); return m >= 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${m} minutos`; };
 const leftLabel = c => { const s = c.lessons.filter(l => !done(l.id)).reduce((a, l) => a + sec(l.dur), 0); return s ? `${human(s)} restantes` : 'Completado'; };
 const avEl = (cls = 'av') => `<span class="${cls}">${S.user?.avatar ? `<img src="${esc(S.user.avatar)}" alt="" referrerpolicy="no-referrer" onerror="this.remove()">` : ''}${esc(((S.user?.name || 'R').trim()[0] || 'R').toUpperCase())}</span>`;
@@ -334,6 +334,11 @@ function vEdit(id) {
   const c = course(id);
   if (!c) return `<p class="note plain">Curso no encontrado.</p>`;
   return `
+    <div class="panel"><b style="font-weight:500">Miniatura</b>
+      <div class="icoedit" style="${bstyle(c)}">${icoEl(c)}<p class="small muted">El cuadrito que aparece junto al nombre del curso. Usa una imagen cuadrada, por ejemplo el logo del curso. Si no subes ninguna, se muestran las iniciales.</p></div>
+      <div class="row"><label class="btn" for="icoIn">${c.icon_path ? 'Cambiar miniatura' : 'Subir miniatura'}</label><input class="sr" type="file" id="icoIn" accept="image/*" data-id="${c.id}">
+      ${c.icon_path ? `<button class="btn danger" data-act="delIcon" data-id="${c.id}">Quitar</button>` : ''}</div>
+    </div>
     <div class="panel"><b style="font-weight:500">Portada</b>
       <div class="coveredit">${coverEl(c)}</div>
       <p class="small muted">Sube la imagen del curso tal como la diseñaste. Tamaño ideal 1600 × 900 (horizontal).</p>
@@ -445,6 +450,20 @@ async function shrink(file, max = 1600) {
     cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
     return await new Promise(r => cv.toBlob(b => r(b || file), 'image/jpeg', .88));
   } catch (e) { return file; }
+}
+// Miniatura: recorte cuadrado al centro, 320 px, en PNG para conservar transparencias
+async function uploadIcon(file) {
+  let blob = file;
+  try {
+    const img = await createImageBitmap(file); const side = Math.min(img.width, img.height);
+    const cv = document.createElement('canvas'); cv.width = cv.height = 320;
+    cv.getContext('2d').drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, 0, 0, 320, 320);
+    blob = await new Promise(r => cv.toBlob(b => r(b || file), 'image/png'));
+  } catch (e) {}
+  const path = `icons/${newId()}.png`;
+  const { error } = await sb.storage.from('media').upload(path, blob, { contentType: 'image/png', cacheControl: '31536000' });
+  if (error) throw error;
+  return path;
 }
 async function uploadMedia(file, prefix) {
   const blob = await shrink(file, 1800);
@@ -634,6 +653,12 @@ document.addEventListener('click', async e => {
       if (error) throw error;
       await loadAll(); go('edit/' + id);
     }
+    else if (a === 'delIcon') {
+      const c = course(t.dataset.id); const old = c.icon_path;
+      const { error } = await sb.from('courses').update({ icon_path: null }).eq('id', c.id); if (error) throw error;
+      if (isStoragePath(old)) sb.storage.from('media').remove([old]);
+      await refresh(); toast('Miniatura quitada');
+    }
     else if (a === 'delCover') {
       const c = course(t.dataset.id); const old = c.cover_path;
       const { error } = await sb.from('courses').update({ cover_path: null }).eq('id', c.id); if (error) throw error;
@@ -705,6 +730,14 @@ document.addEventListener('change', async e => {
     if (el.id === 'capIn' && el.files[0]) {
       capFile = el.files[0];
       $('#capDrop').innerHTML = `<img src="${URL.createObjectURL(capFile)}" alt="Vista previa del capture"><span class="small">Toca para cambiarla</span>`;
+    }
+    if (el.id === 'icoIn' && el.files[0]) {
+      toast('Subiendo miniatura…');
+      const c = course(el.dataset.id); const old = c.icon_path;
+      const path = await uploadIcon(el.files[0]);
+      const { error } = await sb.from('courses').update({ icon_path: path }).eq('id', c.id); if (error) throw error;
+      if (isStoragePath(old)) sb.storage.from('media').remove([old]);
+      await refresh(); toast('Miniatura actualizada');
     }
     if (el.id === 'covIn' && el.files[0]) {
       toast('Subiendo portada…');

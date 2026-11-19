@@ -465,6 +465,11 @@ body::before{background:#FF6FB0}
 .intl b{font-size:1.05rem;font-weight:600}
 .intl p{font-size:.9rem;opacity:.92}
 .flag{width:1.25em;height:.84em;border-radius:2px;vertical-align:-.08em;display:inline-block;box-shadow:0 0 0 .5px rgba(0,0,0,.15)}
+.ico{position:relative;overflow:hidden}
+.ico.hasimg{color:transparent;background:#fff}
+.ico img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.icoedit{display:flex;gap:16px;align-items:center}
+.icoedit .ico{width:72px;height:72px;font-size:1.8rem;border-radius:14px}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 </style>
 </head>
@@ -496,8 +501,8 @@ body::before{background:#FF6FB0}
 <div class="toast" id="toast" hidden></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script>
-<script src="config.js?v=202610212255"></script>
-<script>window.APP_VERSION="202610212255"</script>
-<script src="app.js?v=202610212255"></script>
+<script src="config.js?v=202611191539"></script>
+<script>window.APP_VERSION="202611191539"</script>
+<script src="app.js?v=202611191539"></script>
 </body>
 </html>
