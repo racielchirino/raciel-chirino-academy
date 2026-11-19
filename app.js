@@ -125,6 +125,19 @@ function coverEl(c, cls = '') {
 }
 const busy = (btn, txt) => { if (!btn) return () => {}; const o = btn.innerHTML; btn.disabled = true; btn.textContent = txt; return () => { btn.disabled = false; btn.innerHTML = o; }; };
 
+/* ===== Disponibilidad: activo, programado o terminado (hora de Venezuela) ===== */
+const VE_MS = 4 * 3600e3;
+const fechaHora = iso => new Date(iso).toLocaleString('es-VE', { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'America/Caracas' });
+const toInputVE = iso => iso ? new Date(new Date(iso).getTime() - VE_MS).toISOString().slice(0, 16) : '';
+const fromInputVE = v => v ? new Date(v + ':00-04:00').toISOString() : null;
+function courseState(c, now = new Date()) {
+  if (!c.active) return { live: false, k: 'off', txt: 'Desactivado' };
+  if (c.starts_at && new Date(c.starts_at) > now) return { live: false, k: 'soon', txt: 'Se activa ' + fechaHora(c.starts_at) };
+  if (c.ends_at && new Date(c.ends_at) <= now) return { live: false, k: 'ended', txt: 'Se desactivó ' + fechaHora(c.ends_at) };
+  return { live: true, k: 'on', txt: c.ends_at ? 'Activo hasta ' + fechaHora(c.ends_at) : 'Activo' };
+}
+const isLive = c => courseState(c).live;
+const stateChip = c => { const st = courseState(c); return `<span class="chip ${st.k === 'on' ? 'ok' : st.k === 'soon' ? 'warn' : 'bad'}">${esc(st.txt)}</span>`; };
 const bstyle = c => `--b:${bandColor(c.band)};--bt:${bandText(c.band)}`;
 const abbr = c => { const w = String(c.kicker || c.title || '?').trim().replace(/^(conviértete en|aprende|curso de)\s+/i, ''); return (w[0] || '?').toUpperCase() + (w[1] || '').toLowerCase(); };
 const icoEl = c => { const u = mediaURL(c.icon_path); return `<span class="ico${u ? ' hasimg' : ''}" aria-hidden="true">${u ? `<img src="${esc(u)}" alt="" loading="lazy" onerror="this.parentNode.classList.remove('hasimg');this.remove()">` : ''}${esc(abbr(c))}</span>`; };
@@ -150,7 +163,7 @@ function vSetup() {
     <p class="note plain">Abre el archivo <b>config.js</b> y escribe la dirección del proyecto y la clave pública de Supabase (Project Settings → API).</p>`;
 }
 function vHome() {
-  const list = S.courses.filter(c => c.active);
+  const list = S.courses.filter(isLive);
   const going = S.courses.filter(c => S.enroll.includes(c.id));
   const banners = (S.settings.banners || []).map(mediaURL).filter(Boolean);
   const slides = banners.length ? banners.map(u => `<div class="slide"><img src="${esc(u)}" alt=""></div>`).join('')
@@ -302,12 +315,12 @@ function vAdmin() {
   } else if (adminTab === 'courses') {
     body = `${S.courses.map(c => `
       <div class="crow">${coverEl(c)}
-        <div class="t"><b>${esc(c.title)}</b><span>${c.lessons.length} lecciones · ${FLAG_VE} ${usd(c.price)} · 🌎 ${c.price_intl == null ? '<b style="color:var(--bad)">sin precio</b>' : usd(c.price_intl)} · ${c.lessons.filter(l => l.has_video).length} videos</span></div>
+        <div class="t"><b>${esc(c.title)}</b>${stateChip(c)}<span>${c.lessons.length} lecciones · ${FLAG_VE} ${usd(c.price)} · 🌎 ${c.price_intl == null ? '<b style="color:var(--bad)">sin precio</b>' : usd(c.price_intl)} · ${c.lessons.filter(l => l.has_video).length} videos</span></div>
         <div class="acts"><label class="switch"><input type="checkbox" data-toggle="${c.id}" ${c.active ? 'checked' : ''} aria-label="Curso visible: ${esc(c.title)}"><span></span></label>
         <a class="btn sm" href="#/edit/${c.id}">Editar</a></div>
       </div>`).join('')}
       <button class="btn dark" data-act="newCourse">Nuevo curso</button>
-      <p class="small muted">El interruptor muestra u oculta el curso en el catálogo. Quien ya pagó conserva su acceso.</p>`;
+      <p class="small muted">El interruptor activa o desactiva el curso al instante. Para programar fechas, toca Editar → Disponibilidad. Quien ya pagó conserva su acceso.</p>`;
   } else {
     const st = S.settings;
     body = `<div class="panel"><b style="font-weight:500">Banners de inicio</b><p class="small muted">Las imágenes que se deslizan arriba en Explorar. Tamaño ideal 1600 × 900 (horizontal).</p>
@@ -345,6 +358,17 @@ function vEdit(id) {
       <div class="row"><label class="btn" for="covIn">${c.cover_path ? 'Cambiar portada' : 'Subir portada'}</label><input class="sr" type="file" id="covIn" accept="image/*" data-id="${c.id}">
       ${c.cover_path ? `<button class="btn danger" data-act="delCover" data-id="${c.id}">Quitar</button>` : ''}</div>
     </div>
+    <form class="panel" id="schedForm" data-id="${c.id}">
+      <div class="row" style="justify-content:space-between"><b style="font-weight:500">Disponibilidad</b>${stateChip(c)}</div>
+      <label class="row" style="justify-content:space-between;gap:12px;font-weight:500">Curso activado
+        <span class="switch"><input type="checkbox" id="sActive" ${c.active ? 'checked' : ''}><span></span></span></label>
+      <p class="small muted">Si está activado, puedes limitarlo a un horario. Deja una fecha vacía si no la necesitas. Horas de Venezuela.</p>
+      <div class="grid2">
+        <label class="f">Activar el<input class="in" type="datetime-local" id="sStart" value="${toInputVE(c.starts_at)}"><small>Vacío = desde ya</small></label>
+        <label class="f">Desactivar el<input class="in" type="datetime-local" id="sEnd" value="${toInputVE(c.ends_at)}"><small>Vacío = sin fecha de cierre</small></label>
+      </div>
+      <div class="row"><button class="btn primary">Guardar disponibilidad</button><button type="button" class="btn" data-act="clearSched">Quitar fechas</button></div>
+    </form>
     <form class="panel" id="courseForm" data-id="${c.id}">
       <label class="f">Nombre del curso<input class="in" id="cTitle" value="${esc(c.title)}" required></label>
       <label class="f">Descripción<textarea class="in" id="cTag" style="min-height:100px">${esc(c.tagline)}</textarea></label>
@@ -653,6 +677,7 @@ document.addEventListener('click', async e => {
       if (error) throw error;
       await loadAll(); go('edit/' + id);
     }
+    else if (a === 'clearSched') { $('#sStart').value = ''; $('#sEnd').value = ''; toast('Fechas borradas. Toca Guardar disponibilidad'); }
     else if (a === 'delIcon') {
       const c = course(t.dataset.id); const old = c.icon_path;
       const { error } = await sb.from('courses').update({ icon_path: null }).eq('id', c.id); if (error) throw error;
@@ -826,6 +851,14 @@ document.addEventListener('submit', async e => {
       if (error) throw error;
       await refresh(); toast('Ajustes guardados');
     }
+    else if (f.id === 'schedForm') {
+      const starts_at = fromInputVE($('#sStart').value), ends_at = fromInputVE($('#sEnd').value);
+      if (starts_at && ends_at && new Date(ends_at) <= new Date(starts_at)) return toast('La fecha de desactivar debe ser después de la de activar');
+      restore = busy(btn, 'Guardando…');
+      const { error } = await sb.from('courses').update({ active: $('#sActive').checked, starts_at, ends_at }).eq('id', f.dataset.id);
+      if (error) throw error;
+      await refresh(); toast('Disponibilidad guardada · ' + courseState(course(f.dataset.id)).txt);
+    }
     else if (f.id === 'courseForm') {
       restore = busy(btn, 'Guardando…');
       const { error } = await sb.from('courses').update({ title: $('#cTitle').value.trim(), tagline: $('#cTag').value.trim(), price: +$('#cPrice').value || 0, price_intl: $('#cPriceIntl').value === '' ? null : +$('#cPriceIntl').value, level: $('#cLevel').value,
@@ -862,6 +895,7 @@ addEventListener('hashchange', render);
 addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; if (location.hash.includes('profile')) render(); });
 addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#sheet').hidden) closeSheet(); });
 addEventListener('online', refresh);
+setInterval(() => { if (document.visibilityState === 'visible' && $('#sheet').hidden && !/edit|admin/.test(location.hash)) refresh(); }, 10 * 60e3);
 /* ===== Siempre la versión más nueva ===== */
 if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
   navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(r => r.update()).catch(() => {});
