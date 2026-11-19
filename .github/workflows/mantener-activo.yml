@@ -1,11 +1,3 @@
 name: Mantener Supabase activo
-on:
-  schedule:
-    - cron: "17 14 */3 * *"
-  workflow_dispatch:
-jobs:
-  despertar:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Consultar la base de datos
-        run: curl -sf "https://hpcjulqyqpgavofiqkzb.supabase.co/rest/v1/courses?select=id&limit=1" -H "apikey: sb_publishable_i3i0pM7FTEW0kBovdtJHgw_FglMJiCZ"
+on: {schedule: [{cron: "17 14 */3 * *"}], workflow_dispatch: {}}
+jobs: {despertar: {runs-on: ubuntu-latest, steps: [{name: Consultar la base de datos, run: "curl -sf 'https://hpcjulqyqpgavofiqkzb.supabase.co/rest/v1/courses?select=id&limit=1' -H 'apikey: sb_publishable_i3i0pM7FTEW0kBovdtJHgw_FglMJiCZ'"}]}}
