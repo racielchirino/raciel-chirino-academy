@@ -117,6 +117,7 @@ const ic = {
   x: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
   google: '<svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>',
   wa: '<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2c-1.5 0-3-.4-4.3-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1-.7-.3-1.4-.7-2-1.3-.5-.5-1-1.1-1.3-1.7-.1-.2 0-.4.1-.5l.4-.5.2-.4v-.4l-.8-1.9c-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.5.1-.7.3-.6.6-.9 1.4-.9 2.2.1 1 .4 1.9 1 2.7 1.1 1.6 2.5 2.9 4.3 3.7.5.2.9.4 1.4.5.5.2 1 .2 1.5.1.6-.1 1.1-.5 1.5-1 .2-.4.2-.8.2-1.2l-.4-.2z"/></svg>',
+  clock: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
   chev: '<svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>'
 };
 function coverEl(c, cls = '') {
@@ -137,6 +138,18 @@ function courseState(c, now = new Date()) {
   return { live: true, k: 'on', txt: c.ends_at ? 'Activo hasta ' + fechaHora(c.ends_at) : 'Activo' };
 }
 const isLive = c => courseState(c).live;
+const inCatalog = c => ['on', 'soon'].includes(courseState(c).k);   // activos y programados se ven; desactivados y terminados no
+/* Cuenta regresiva hasta que el curso esté disponible */
+function faltan(iso, largo) {
+  let m = Math.max(0, Math.ceil((new Date(iso) - Date.now()) / 60000));
+  if (m < 1) return largo ? 'Abre en un momento' : 'Abre ya';
+  const d = Math.floor(m / 1440), h = Math.floor(m % 1440 / 60); m = m % 60;
+  if (!largo) return 'Abre en ' + (d ? `${d} d ${h} h` : h ? `${h} h ${m} min` : `${m} min`);
+  const p = n => n === 1 ? '' : 's', parts = [];
+  if (d) parts.push(`${d} día${p(d)}`); if (h) parts.push(`${h} hora${p(h)}`); if (m && d < 2) parts.push(`${m} minuto${p(m)}`);
+  return 'Faltan ' + (parts.length > 1 ? parts.slice(0, -1).join(', ') + ' y ' + parts.at(-1) : parts[0]);
+}
+const cuenta = (c, largo) => `<span data-until="${esc(c.starts_at)}" data-largo="${largo ? 1 : ''}">${faltan(c.starts_at, largo)}</span>`;
 const stateChip = c => { const st = courseState(c); return `<span class="chip ${st.k === 'on' ? 'ok' : st.k === 'soon' ? 'warn' : 'bad'}">${esc(st.txt)}</span>`; };
 const bstyle = c => `--b:${bandColor(c.band)};--bt:${bandText(c.band)}`;
 const abbr = c => { const w = String(c.kicker || c.title || '?').trim().replace(/^(conviértete en|aprende|curso de)\s+/i, ''); return (w[0] || '?').toUpperCase() + (w[1] || '').toLowerCase(); };
@@ -163,7 +176,7 @@ function vSetup() {
     <p class="note plain">Abre el archivo <b>config.js</b> y escribe la dirección del proyecto y la clave pública de Supabase (Project Settings → API).</p>`;
 }
 function vHome() {
-  const list = S.courses.filter(isLive);
+  const list = S.courses.filter(inCatalog);
   const going = S.courses.filter(c => S.enroll.includes(c.id));
   const banners = (S.settings.banners || []).map(mediaURL).filter(Boolean);
   const slides = banners.length ? banners.map(u => `<div class="slide"><img src="${esc(u)}" alt=""></div>`).join('')
@@ -185,14 +198,15 @@ function vHome() {
     <section class="sec">
       <div class="sec-head"><h2>Todos los cursos</h2></div>
       ${list.length ? `<div class="grid">${list.map(c => `
-        <a class="tile" style="${bstyle(c)}" href="#/course/${c.id}">${statusChip(c)}${icoEl(c)}
-          <div class="b"><h3>${esc(c.title)}</h3>
+        <a class="tile" style="${bstyle(c)}" href="#/course/${c.id}">${icoEl(c)}
+          <div class="b">${statusChip(c)}<h3>${esc(c.title)}</h3>
             <div class="meta"><span>${c.lessons.length} lecciones</span><span class="price">${priceTxt(c)}</span></div></div>
         </a>`).join('')}</div>` : `<p class="note plain">${S.loaded ? 'Pronto habrá cursos disponibles.' : 'Cargando cursos…'}</p>`}
     </section>`;
 }
 function statusChip(c) {
   if (S.enroll.includes(c.id)) return '<span class="chip ok">Tienes acceso</span>';
+  if (courseState(c).k === 'soon') return `<span class="chip soon">${ic.clock}${cuenta(c)}</span>`;
   const r = lastReq(c.id);
   if (r && r.status === 'pendiente') return '<span class="chip warn">Pago en revisión</span>';
   return '';
@@ -214,6 +228,10 @@ function vCourse(id) {
   let cta = '', note = '';
   if (acc) cta = next ? `<a class="btn primary" href="#/lesson/${c.id}/${next.id}">${c.lessons.some(l => done(l.id)) ? `Continuar · ${pct(c)}%` : 'Empezar el curso'}</a>` : '';
   else if (r && r.status === 'pendiente') note = `<p class="note warn"><b>Recibimos tu comprobante.</b> Raciel lo está revisando y activará tu curso en cuanto confirme el pago.</p>`;
+  else if (courseState(c).k === 'soon') {
+    cta = `<button class="btn primary" disabled>${ic.clock}${cuenta(c, true)}</button>`;
+    note = `<p class="note warn">Este curso abre el <b>${esc(fechaHora(c.starts_at))}</b> (hora de Venezuela). Podrás inscribirte desde ese momento.</p>`;
+  }
   else {
     if (r && r.status === 'rechazado') note = `<p class="note bad">Tu último comprobante no se pudo confirmar. Revisa los datos del pago y envíalo de nuevo.</p>`;
     cta = priceOf(c) != null ? `<button class="btn primary" data-act="buy" data-id="${c.id}">Inscribirme por ${usd(priceOf(c))}</button>`
@@ -417,7 +435,7 @@ function closeSheet() { $('#sheet').hidden = true; $('#sheetIn').innerHTML = '';
 const sheetHead = t => `<div class="sheet-head"><h2>${t}</h2><button class="iconbtn" style="margin:0" data-act="close" aria-label="Cerrar">${ic.x}</button></div>`;
 function buySheet(c) {
   if (!me()) { go('profile'); return toast('Entra con Google para inscribirte'); }
-  if (priceOf(c) == null) return go('course/' + c.id);
+  if (priceOf(c) == null || !isLive(c)) return go('course/' + c.id);
   const ve = isVE(), price = priceOf(c), bank = ve ? S.settings.bank : (S.settings.bank_intl || '');
   openSheet(`${sheetHead('Inscripción')}
     <div class="row" style="justify-content:space-between"><b style="font-weight:500">${esc(c.title)}</b><b style="font-size:1.2rem">${usd(price)}</b></div>
@@ -895,6 +913,12 @@ addEventListener('hashchange', render);
 addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; if (location.hash.includes('profile')) render(); });
 addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#sheet').hidden) closeSheet(); });
 addEventListener('online', refresh);
+// Actualiza las cuentas regresivas cada 20 s; al llegar a cero recarga los cursos para abrir la inscripción
+setInterval(() => {
+  let abrio = false;
+  document.querySelectorAll('[data-until]').forEach(el => { el.textContent = faltan(el.dataset.until, !!el.dataset.largo); if (new Date(el.dataset.until) <= Date.now()) abrio = true; });
+  if (abrio && $('#sheet').hidden) refresh();
+}, 20000);
 setInterval(() => { if (document.visibilityState === 'visible' && $('#sheet').hidden && !/edit|admin/.test(location.hash)) refresh(); }, 10 * 60e3);
 /* ===== Siempre la versión más nueva ===== */
 if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
